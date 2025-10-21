@@ -1,0 +1,54 @@
+﻿@{
+    ViewData["Title"] = "Attendance";
+}
+<h2>Attendance</h2>
+<p>JSON endpoints:</p>
+<ul>
+  <li>POST /Attendance/MarkStudentAttendance
+        {
+        "studentId": 1,
+        "attendanceDate": "2025-04-01",
+        "className": "Grade 8",
+        "section": "A",
+        "status": "Present",
+        "markedByUserId": 1
+        }
+  </li>
+  <li>POST /Attendance/BulkMarkClassAttendance 
+    {
+    "attendanceDate": "2025-04-01",
+    "className": "Grade 8",
+    "section": "A",
+    "markedByUserId": 1,
+    "items": [
+    { "studentId": 1, "status": "Present" },
+    { "studentId": 2, "status": "Absent", "remarks": "Sick" }
+    ]
+    }
+  </li>
+  <li>POST /Attendance/UpdateStudentAttendanceStatus
+
+  </li>
+  <li>POST /Attendance/DeleteStudentAttendance</li>
+  <li>GET /Attendance/GetClassAttendanceByDate?attendanceDate=2025-04-01&className=Grade%208&section=A</li>
+  <li>GET /Attendance/GetStudentAttendanceRange?studentId=1&fromDate=2025-04-01&toDate=2025-04-30</li>
+</ul>
+
+    <h3>Student Leave</h3>
+<ul>
+  <li>POST /Attendance/ApplyStudentLeave { "studentId": 1, "leaveType": "Sick", "fromDate": "2025-04-02", "toDate": "2025-04-04", "reason": "Fever", "appliedByUserId": 1 }</li>
+  <li>POST /Attendance/ApproveStudentLeave { "leaveId": 1, "approvedByUserId": 1 }</li>
+  <li>POST /Attendance/RejectStudentLeave { "leaveId": 2, "approvedByUserId": 1, "rejectionReason": "Insufficient info" }</li>
+  <li>POST /Attendance/CancelStudentLeave { "leaveId": 3 }</li>
+  <li>GET /Attendance/GetStudentLeavesRange?studentId=1&fromDate=2025-04-01&toDate=2025-04-30</li>
+  <li>GET /Attendance/GetPendingStudentLeaves?fromDate=2025-04-01&toDate=2025-04-30&className=Grade%208&section=A&status=Pending</li>
+</ul>
+
+  <h3>Staff Attendance</h3>
+<ul>
+  <li>POST /Attendance/MarkStaffAttendance { "userId": 10, "attendanceDate": "2025-04-01", "status":"Present", "inTime":"2025-04-01T08:55:00Z", "markedByUserId": 1, "source":"Manual" }</li>
+  <li>POST /Attendance/UpdateStaffAttendanceStatus { "attendanceId": 1, "status":"Late", "remarks":"Traffic", "inTime":"2025-04-01T09:10:00Z" }</li>
+  <li>POST /Attendance/DeleteStaffAttendance { "attendanceId": 1 }</li>
+  <li>GET /Attendance/GetStaffAttendanceRange?userId=10&fromDate=2025-04-01&toDate=2025-04-30</li>
+  <li>GET /Attendance/GetStaffDailyAttendance?attendanceDate=2025-04-01&status=Absent (status is optional)</li>
+</ul>

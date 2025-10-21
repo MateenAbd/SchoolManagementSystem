@@ -5,6 +5,7 @@ using SMS.Core.Logger.Interfaces;
 using SMS.Core.Logger.Services;
 using SMS.Core.Repositories;
 using SMS.Infrastructure.Repositories;
+using SMS.Infrastructure.Services;
 
 namespace SMS.Infrastructure
 {
@@ -15,6 +16,9 @@ namespace SMS.Infrastructure
             services.AddTransient<ILog, LogService>();
             services.AddTransient<IRepository, Repository>();
             services.AddTransient<IUnitOfWork, UnitOfWork>();
+
+            services.AddSingleton<IPasswordHasher, PasswordHasherService>();
+
 
         }
     }

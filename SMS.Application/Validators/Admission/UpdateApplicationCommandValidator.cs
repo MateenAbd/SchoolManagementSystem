@@ -1,0 +1,16 @@
+﻿using FluentValidation;
+using SMS.Application.Commands.Admission;
+
+namespace SMS.Application.Validators.Admission
+{
+    public class UpdateApplicationCommandValidator : AbstractValidator<UpdateApplicationCommand>
+    {
+        public UpdateApplicationCommandValidator()
+        {
+            RuleFor(x => x.Application.ApplicationId).GreaterThan(0);
+            RuleFor(x => x.Application.ApplicantName).NotEmpty();
+            RuleFor(x => x.Application.ClassAppliedFor).NotEmpty();
+            RuleFor(x => x.Application.AcademicYear).NotEmpty();
+        }
+    }
+}

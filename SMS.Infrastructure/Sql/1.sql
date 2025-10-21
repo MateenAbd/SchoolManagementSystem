@@ -1,3 +1,188 @@
+create database SMSDb;
+use SMSDb;
+
+CREATE TABLE dbo.Users
+(
+    UserId INT IDENTITY(1,1) PRIMARY KEY,
+    UserName NVARCHAR(100) NOT NULL,
+    NormalizedUserName NVARCHAR(100) NOT NULL,
+    Email NVARCHAR(256) NOT NULL,
+    NormalizedEmail NVARCHAR(256) NOT NULL,
+    PhoneNumber NVARCHAR(30) NULL,
+    PasswordHash NVARCHAR(500) NOT NULL,
+    IsActive BIT NOT NULL DEFAULT 1,
+    CreatedAtUtc DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+    LastLoginAtUtc DATETIME2 NULL,
+    SecurityStamp NVARCHAR(100) NULL
+);
+CREATE UNIQUE INDEX UX_Users_NormalizedUserName ON dbo.Users(NormalizedUserName);
+CREATE UNIQUE INDEX UX_Users_NormalizedEmail ON dbo.Users(NormalizedEmail);
+
+GO
+
+CREATE OR ALTER PROCEDURE CreateUser
+    @UserName NVARCHAR(100),
+    @Email NVARCHAR(256),
+    @PhoneNumber NVARCHAR(30) = NULL,
+    @PasswordHash NVARCHAR(500),
+    @IsActive BIT = 1
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @NormUserName NVARCHAR(100) = UPPER(LTRIM(RTRIM(@UserName)));
+    DECLARE @NormEmail NVARCHAR(256) = UPPER(LTRIM(RTRIM(@Email)));
+
+    IF EXISTS (SELECT 1 FROM dbo.Users WHERE NormalizedUserName = @NormUserName)
+        THROW 50001, 'Username already exists', 1;
+
+    IF EXISTS (SELECT 1 FROM dbo.Users WHERE NormalizedEmail = @NormEmail)
+        THROW 50002, 'Email already exists', 1;
+
+    INSERT INTO dbo.Users (UserName, NormalizedUserName, Email, NormalizedEmail, PhoneNumber, PasswordHash, IsActive)
+    VALUES (@UserName, @NormUserName, @Email, @NormEmail, @PhoneNumber, @PasswordHash, @IsActive);
+
+    RETURN CONVERT(INT, SCOPE_IDENTITY());
+END
+GO
+
+-- Set password hash
+CREATE OR ALTER PROCEDURE SetUserPasswordHash
+    @UserId INT,
+    @PasswordHash NVARCHAR(500)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE dbo.Users SET PasswordHash = @PasswordHash, SecurityStamp = CONVERT(NVARCHAR(100), NEWID())
+    WHERE UserId = @UserId;
+    RETURN @UserId;
+END
+GO
+
+-- Get by id
+CREATE OR ALTER PROCEDURE GetUserById
+    @UserId INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT TOP 1 * FROM dbo.Users WHERE UserId = @UserId;
+END
+GO
+
+-- Get by email
+CREATE OR ALTER PROCEDURE GetUserByEmail
+    @Email NVARCHAR(256)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    DECLARE @NormEmail NVARCHAR(256) = UPPER(LTRIM(RTRIM(@Email)));
+    SELECT TOP 1 * FROM dbo.Users WHERE NormalizedEmail = @NormEmail;
+END
+GO
+
+CREATE OR ALTER PROCEDURE GetUserByUserName
+    @UserName NVARCHAR(100)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    DECLARE @NormUserName NVARCHAR(100) = UPPER(LTRIM(RTRIM(@UserName)));
+    SELECT TOP 1 * FROM dbo.Users WHERE NormalizedUserName = @NormUserName;
+END
+GO
+
+
+CREATE TABLE dbo.Roles
+(
+    RoleId INT IDENTITY(1,1) PRIMARY KEY,
+    Name NVARCHAR(100) NOT NULL,
+    NormalizedName NVARCHAR(100) NOT NULL
+);
+CREATE UNIQUE INDEX UX_Roles_NormalizedName ON dbo.Roles(NormalizedName);
+--seeding roles table
+MERGE dbo.Roles AS tgt
+USING (VALUES 
+    ('Admin'), ('Teacher'), ('Student'), ('Parent')
+) AS src(Name)
+ON tgt.NormalizedName = UPPER(src.Name)
+WHEN NOT MATCHED BY TARGET THEN
+    INSERT (Name, NormalizedName) VALUES (src.Name, UPPER(src.Name));
+GO
+
+CREATE TABLE dbo.UserRoles
+(
+    UserId INT NOT NULL,
+    RoleId INT NOT NULL,
+    CONSTRAINT PK_UserRoles PRIMARY KEY (UserId, RoleId),
+    CONSTRAINT FK_UserRoles_Users FOREIGN KEY (UserId) REFERENCES dbo.Users(UserId) ON DELETE CASCADE,
+    CONSTRAINT FK_UserRoles_Roles FOREIGN KEY (RoleId) REFERENCES dbo.Roles(RoleId) ON DELETE CASCADE
+);
+GO
+CREATE OR ALTER PROCEDURE AssignRoleToUser
+    @UserId INT,
+    @RoleName NVARCHAR(100)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    DECLARE @NormRole NVARCHAR(100) = UPPER(LTRIM(RTRIM(@RoleName)));
+    DECLARE @RoleId INT;
+
+    SELECT @RoleId = RoleId FROM dbo.Roles WHERE NormalizedName = @NormRole;
+    IF @RoleId IS NULL
+    BEGIN
+        INSERT INTO dbo.Roles (Name, NormalizedName) VALUES (@RoleName, @NormRole);
+        SET @RoleId = CONVERT(INT, SCOPE_IDENTITY());
+    END
+
+    IF NOT EXISTS (SELECT 1 FROM dbo.UserRoles WHERE UserId = @UserId AND RoleId = @RoleId)
+        INSERT INTO dbo.UserRoles (UserId, RoleId) VALUES (@UserId, @RoleId);
+
+    RETURN @UserId;
+END
+GO
+
+-- Remove role from user
+CREATE OR ALTER PROCEDURE RemoveRoleFromUser
+    @UserId INT,
+    @RoleName NVARCHAR(100)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    DECLARE @NormRole NVARCHAR(100) = UPPER(LTRIM(RTRIM(@RoleName)));
+    DECLARE @RoleId INT = (SELECT RoleId FROM dbo.Roles WHERE NormalizedName = @NormRole);
+
+    IF @RoleId IS NOT NULL
+    BEGIN
+        DELETE FROM dbo.UserRoles WHERE UserId = @UserId AND RoleId = @RoleId;
+    END
+
+    RETURN @UserId;
+END
+GO
+
+-- Get user roles
+CREATE OR ALTER PROCEDURE GetUserRoles
+    @UserId INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT r.Name
+    FROM dbo.Roles r
+    INNER JOIN dbo.UserRoles ur ON ur.RoleId = r.RoleId
+    WHERE ur.UserId = @UserId
+    ORDER BY r.Name;
+END
+GO
+
+CREATE OR ALTER PROCEDURE UpdateUserLastLogin
+    @UserId INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE dbo.Users SET LastLoginAtUtc = SYSUTCDATETIME() WHERE UserId = @UserId;
+    RETURN @UserId;
+END
+GO
+
 CREATE TABLE Students
 (
     StudentId INT IDENTITY(1,1) PRIMARY KEY,
@@ -12,9 +197,15 @@ CREATE TABLE Students
     Address NVARCHAR(500) NULL,
     GuardianName NVARCHAR(200) NULL,
     HealthInfo NVARCHAR(1000) NULL,
-    PhotoUrl NVARCHAR(500) NULL
+    PhotoUrl NVARCHAR(500) NULL,
+    UserId INT NULL,
+    CONSTRAINT FK_Students_Users_UserId FOREIGN KEY (UserId) REFERENCES Users(UserId) 
 );
-
+--run in office pcs
+--ALTER TABLE dbo.Students ADD UserId INT NULL;
+--ALTER TABLE dbo.Students
+    --ADD CONSTRAINT FK_Students_Users_UserId FOREIGN KEY (UserId) REFERENCES dbo.Users(UserId);
+GO
 
 CREATE OR ALTER PROCEDURE AddStudent
     @AdmissionNo NVARCHAR(50) = NULL,
@@ -47,6 +238,23 @@ BEGIN
     END
 
     RETURN @NewId;
+END
+GO
+CREATE OR ALTER PROCEDURE LinkStudentToUser
+    @StudentId INT,
+    @UserId INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    IF NOT EXISTS (SELECT 1 FROM dbo.Users WHERE UserId = @UserId)
+        THROW 50011, 'User not found', 1;
+
+    IF NOT EXISTS (SELECT 1 FROM dbo.Students WHERE StudentId = @StudentId)
+        THROW 50012, 'Student not found', 1;
+
+    UPDATE dbo.Students SET UserId = @UserId WHERE StudentId = @StudentId;
+    RETURN @StudentId;
 END
 GO
 
@@ -152,6 +360,7 @@ CREATE TABLE dbo.StudentEnrollments
 );
 CREATE UNIQUE INDEX UX_Enrollments_Student_Year ON dbo.StudentEnrollments(StudentId, AcademicYear);
 
+GO
 
 CREATE OR ALTER PROCEDURE SetStudentPhoto
     @StudentId INT,

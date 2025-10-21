@@ -1,10 +1,6 @@
-﻿using System;
-using System.IO;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-using FluentValidation;
+﻿using FluentValidation;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -13,9 +9,15 @@ using SMS.Application.Commands.Student;
 using SMS.Application.Dto;
 using SMS.Application.Queries.Student;
 using SMS.Core.Logger.Interfaces;
+using System;
+using System.IO;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace SMS.Admin.Controllers
 {
+    [Authorize]
     public class StudentController : Controller
     {
         private readonly ILog _logger;
@@ -34,6 +36,7 @@ namespace SMS.Admin.Controllers
         [HttpGet]
         public IActionResult Index() => View();
 
+        [Authorize(Roles = "Admin")]
         [HttpPost]
         public async Task<IActionResult> AddStudent([FromBody] StudentDto studentDto, CancellationToken token)
         {
@@ -85,6 +88,7 @@ namespace SMS.Admin.Controllers
             }
         }
 
+        [Authorize(Roles = "Admin")]
         [HttpPut]
         public async Task<IActionResult> UpdateStudent([FromBody] StudentDto studentDto, CancellationToken token)
         {
@@ -106,6 +110,7 @@ namespace SMS.Admin.Controllers
         }
 
 
+        [Authorize(Roles = "Admin")]
         [HttpDelete]
         public async Task<IActionResult> DeleteStudentById([FromBody] int studentId, CancellationToken token)
         {
@@ -121,7 +126,8 @@ namespace SMS.Admin.Controllers
             }
         }
 
-        
+
+        [Authorize(Roles = "Admin")]
         [HttpPost]
         [RequestSizeLimit(20_000_000)] // 20 MB
         public async Task<IActionResult> UploadPhoto([FromForm] int studentId, IFormFile file, CancellationToken token)
@@ -155,6 +161,8 @@ namespace SMS.Admin.Controllers
             }
         }
 
+
+        [Authorize(Roles = "Admin")]
         [HttpPost]
         [RequestSizeLimit(50_000_000)] // 50 MB
         public async Task<IActionResult> UploadDocument([FromForm] int studentId, [FromForm] string? description, IFormFile file, CancellationToken token)
@@ -214,6 +222,7 @@ namespace SMS.Admin.Controllers
             }
         }
 
+        [Authorize(Roles = "Admin")]
         [HttpDelete]
         public async Task<IActionResult> DeleteStudentDocumentById([FromBody] int documentId, CancellationToken token)
         {
@@ -229,7 +238,8 @@ namespace SMS.Admin.Controllers
             }
         }
 
-       
+
+        [Authorize(Roles = "Admin")]
         [HttpPost]
         public async Task<IActionResult> AddOrUpdateEnrollment([FromBody] StudentEnrollmentDto dto, CancellationToken token)
         {

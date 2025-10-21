@@ -19,5 +19,16 @@ namespace SMS.Infrastructure.Repositories
 
         private IStudentRepository _studentRepository;
         public IStudentRepository StudentRepository => _studentRepository ??= new StudentRepository(_dbRepository);
+        
+
+        private IUserRepository _userRepository;
+        public IUserRepository UserRepository => _userRepository ??= new UserRepository(_dbRepository);
+
+
+        private IAdmissionRepository? _admissionRepository;
+        public IAdmissionRepository AdmissionRepository => _admissionRepository ??= new AdmissionRepository(_dbRepository);
+
+        private IAttendanceRepository? _attendanceRepository;
+        public IAttendanceRepository AttendanceRepository => _attendanceRepository ??= new AttendanceRepository(_dbRepository);
     }
 }

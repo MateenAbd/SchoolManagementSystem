@@ -3,6 +3,9 @@
     public interface IUnitOfWork
     {
         IStudentRepository StudentRepository { get; }
+        IUserRepository UserRepository { get; }
+        IAdmissionRepository AdmissionRepository { get; }
+        IAttendanceRepository AttendanceRepository { get; }
 
 
     }

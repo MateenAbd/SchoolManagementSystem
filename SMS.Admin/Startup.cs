@@ -1,14 +1,15 @@
-﻿using System;
+﻿using MediatR;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Mvc.Razor;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using MediatR;
-using Microsoft.AspNetCore.Mvc.Razor;
 using SMS.Application.Mapper;
 using SMS.Infrastructure;
+using System;
 
 namespace SMS.Admin
 {
@@ -41,6 +42,20 @@ namespace SMS.Admin
                 Configuration.GetConnectionString("DefaultConnection"),
                 sql => sql.CommandTimeout(Convert.ToInt32(timeoutSection.Value ?? "30"))
             ));
+
+
+            services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+                .AddCookie(options =>
+                {
+                    options.Cookie.Name = "SMS.Auth";
+                    options.LoginPath = "/Auth/Login";
+                    options.LogoutPath = "/Auth/Logout";
+                    options.SlidingExpiration = true;
+                    options.ExpireTimeSpan = TimeSpan.FromHours(8);
+                });
+
+            services.AddAuthorization();
+
 
             services.AddInfrastructure();
             services.AddAutoMapper(config =>

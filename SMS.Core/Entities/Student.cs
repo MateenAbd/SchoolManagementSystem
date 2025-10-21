@@ -21,5 +21,6 @@ namespace SMS.Core.Entities
         public string GuardianName { get; set; }
         public string HealthInfo { get; set; }
         public string PhotoUrl { get; set; }
+        public int? UserId { get; set; }
     }
 }

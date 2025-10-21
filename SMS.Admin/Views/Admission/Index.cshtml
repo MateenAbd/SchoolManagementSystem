@@ -1,0 +1,33 @@
+﻿@{
+    ViewData["Title"] = "Admission Management";
+}
+<h2>Admission Management</h2>
+<p>JSON endpoints:</p>
+<ul>
+  <li>POST /Admission/CreateInquiry</li>
+  <li>POST /Admission/UpdateInquiry</li>
+  <li>POST /Admission/UpdateInquiryStatus</li>
+  <li>GET /Admission/GetInquiryById?inquiryId=1</li>
+  <li>GET /Admission/GetInquiryList?academicYear=2024-2025&interestedClass=Grade%208&leadStatus=New</li>
+  <li>POST /Admission/CreateApplication</li>
+  <li>POST /Admission/UpdateApplication</li>
+  <li>POST /Admission/UpdateApplicationStatus</li>
+  <li>GET /Admission/GetApplicationById?applicationId=1</li>
+  <li>GET /Admission/GetApplicationList?academicYear=2024-2025&classAppliedFor=Grade%208&status=Submitted</li>
+
+  <li>POST /Admission/CollectApplicationFee
+body: { "applicationId": 1, "amount": 500, "currency": "INR", "paymentMode": "Cash", "referenceNo": "RCPT-001" }</li>
+  <li>GET /Admission/GetApplicationFees?applicationId=1 </li>
+  <li>GET /Admission/GetApplicationFeeSummary?academicYear=2024-2025&classAppliedFor=Grade%208 </li>
+  <li>POST /Admission/GenerateShortlist
+body: { "academicYear":"2024-2025", "classAppliedFor":"Grade 8", "minEntranceScore": 50, "topN": 100 } </li>
+  <li>GET /Admission/GetShortlist?academicYear=2024-2025&classAppliedFor=Grade%208 </li>
+  <li>POST /Admission/GenerateMeritList  body: { "academicYear":"2024-2025", "classAppliedFor":"Grade 8", "topN": 60 } </li>
+  <li>GET /Admission/GetMeritList?academicYear=2024-2025&classAppliedFor=Grade%208 </li>
+
+  <li>POST /Admission/UploadApplicationDocument (form-data: applicationId, description?, file)</li>
+  <li>GET /Admission/GetApplicationDocuments?applicationId=1</li>
+  <li>POST /Admission/VerifyApplicationDocument (body: { documentId, verifiedByUserId, verified:true })</li>
+  <li>POST /Admission/SetApplicationDocumentsVerified (body: { applicationId, documentsVerified:true })</li>
+  <li>POST /Admission/ConfirmAdmission (body: { applicationId, section:'A', enrollmentDate:'2025-04-01T00:00:00Z' })</li>
+</ul>
