@@ -29,6 +29,19 @@ namespace SMS.Application.Mapper
             CreateMap<StudentAttendance, StudentAttendanceDto>().ReverseMap();
             CreateMap<StudentLeaveRequest, StudentLeaveRequestDto>().ReverseMap();
             CreateMap<StaffAttendance, StaffAttendanceDto>().ReverseMap();
+            CreateMap<StudentAttendanceSummary, StudentAttendanceSummaryDto>().ReverseMap();
+            CreateMap<StaffAttendanceSummary, StaffAttendanceSummaryDto>().ReverseMap();
+            CreateMap<BiometricDevice, BiometricDeviceDto>().ReverseMap();
+            CreateMap<BiometricUserMap, BiometricUserMapDto>().ReverseMap();
+            CreateMap<AbsentStudentContact, AbsentStudentContactDto>().ReverseMap();
+            CreateMap<NotificationLog, NotificationLogDto>().ReverseMap();
+
+            // Academic
+            CreateMap<Subject, SubjectDto>().ReverseMap();
+            CreateMap<Course, CourseDto>().ReverseMap();
+            CreateMap<CourseSyllabus, CourseSyllabusDto>().ReverseMap();
+            CreateMap<Classroom, ClassroomDto>().ReverseMap();
+            CreateMap<TimetableEntry, TimetableEntryDto>().ReverseMap();
         }
     }
 }

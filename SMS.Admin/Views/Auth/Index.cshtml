@@ -1,0 +1,123 @@
+﻿@{
+    ViewData["Title"] = "Auth";
+    var isAuth = User?.Identity?.IsAuthenticated == true;
+    var isAdmin = User?.IsInRole("Admin") == true;
+    var userName = User?.Identity?.Name ?? "Guest";
+}
+<div class="row">
+    <div class="col-12 col-lg-10 mx-auto">
+        <h2 class="mb-3">Authentication</h2>
+        <p class="small-muted">Cookie: SMS.Auth. All AJAX uses withCredentials.</p>
+
+        @if (!isAuth)
+        {
+            <div class="card shadow-sm mb-4" id="loginCard">
+                <div class="card-header bg-primary text-white">Login</div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">User name or Email</label>
+                            <input type="text" class="form-control" id="loginUser" autocomplete="username" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Password</label>
+                            <input type="password" class="form-control" id="loginPass" autocomplete="current-password" />
+                        </div>
+                        <div class="col-12">
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" id="rememberMe" />
+                                <label class="form-check-label" for="rememberMe">Remember me</label>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <button type="button" class="btn btn-success" id="btnLogin">Login</button>
+                        </div>
+                    </div>
+                    <div id="loginMsg" class="mt-3"></div>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="alert alert-success">You are logged in as <strong>@userName</strong>.</div>
+
+            @if (isAdmin)
+            {
+                <div class="card shadow-sm mb-4" id="registerCard">
+                    <div class="card-header bg-dark text-white">Admin: Register New User</div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label">User Name</label>
+                                <input type="text" class="form-control" id="regUserName" />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Email</label>
+                                <input type="email" class="form-control" id="regEmail" />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Phone</label>
+                                <input type="text" class="form-control" id="regPhone" />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Password</label>
+                                <input type="password" class="form-control" id="regPassword" />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Role</label>
+                                <select class="form-select" id="regRole">
+                                    <option value="">Select</option>
+                                    <option>Admin</option>
+                                    <option>Teacher</option>
+                                    <option>Student</option>
+                                </select>
+                            </div>
+                            <div class="col-12">
+                                <button type="button" class="btn btn-primary" id="btnRegister">Register</button>
+                            </div>
+                        </div>
+                        <div id="registerMsg" class="mt-3"></div>
+                    </div>
+                </div>
+
+                <div class="card shadow-sm mb-4" id="linkStudentCard">
+                    <div class="card-header bg-secondary text-white">Admin: Link Student to Existing User</div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">User Id</label>
+                                <input type="number" class="form-control" id="linkUserId" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Student Id</label>
+                                <input type="number" class="form-control" id="linkStudentId" />
+                            </div>
+                            <div class="col-12">
+                                <button type="button" class="btn btn-warning" id="btnLink">Link</button>
+                            </div>
+                        </div>
+                        <div id="linkMsg" class="mt-3"></div>
+                    </div>
+                </div>
+
+                <div class="alert alert-info">
+                    Quick Links:
+                    <a href="/Student" class="btn btn-sm btn-outline-primary me-2">Student</a>
+                    <a href="/Admission" class="btn btn-sm btn-outline-primary me-2">Admission</a>
+                    <a href="/Attendance" class="btn btn-sm btn-outline-primary">Attendance</a>
+                </div>
+            }
+            else
+            {
+                <div class="alert alert-info">
+                    Head to Attendance to apply for leave:
+                    <a href="/Attendance" class="btn btn-sm btn-outline-primary ms-2">Go to Attendance</a>
+                </div>
+            }
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <script src="/js/script/auth.js?v=1"></script>
+}

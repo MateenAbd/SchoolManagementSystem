@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 using SMS.Application.Commands.Admission;
 using SMS.Application.Dto;
 using SMS.Application.Queries.Admission;
+using SMS.Core.Exceptions;
 using SMS.Core.Logger.Interfaces;
 
 namespace SMS.Admin.Controllers
@@ -465,6 +466,11 @@ namespace SMS.Admin.Controllers
             {
                 _logger.Error(ex, "ConfirmAdmission validation failed");
                 return BadRequest(new { success = false, errors = ex.Errors.Select(e => e.ErrorMessage) });
+            }
+            catch (StoredProcedureExecutionException ex)
+            {
+                _logger.Error(ex, "ConfirmAdmission failed");
+                return StatusCode(500, new { success = false, error = ex.Message });
             }
             catch (Exception ex)
             {

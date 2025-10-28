@@ -1,0 +1,66 @@
+﻿@{
+    ViewData["Title"] = "Academic Management";
+}
+<h2>Academic Management</h2>
+<p>JSON endpoints:</p>
+
+<h3>Subjects</h3>
+<ul>
+    <li>POST /Academic/CreateSubject</li>
+    <li>POST /Academic/UpdateSubject</li>
+    <li>POST /Academic/DeleteSubject (body: number subjectId)</li>
+    <li>GET /Academic/GetSubjectById?subjectId=1</li>
+    <li>GET /Academic/GetSubjectList?isActive=true</li>
+</ul>
+
+<h3>Courses</h3>
+<ul>
+    <li>POST /Academic/CreateCourse</li>
+    <li>POST /Academic/UpdateCourse</li>
+    <li>POST /Academic/DeleteCourse (body: number courseId)</li>
+    <li>GET /Academic/GetCourseById?courseId=1</li>
+    <li>GET /Academic/GetCourseList?academicYear=2024-2025&className=Grade%208&subjectId=1&isActive=true</li>
+</ul>
+
+<h3>Syllabus</h3>
+<ul>
+    <li>POST /Academic/AddSyllabusItem</li>
+    <li>POST /Academic/UpdateSyllabusItem</li>
+    <li>POST /Academic/DeleteSyllabusItem (body: number syllabusId)</li>
+    <li>GET /Academic/GetSyllabusByCourse?courseId=1</li>
+</ul>
+
+<h3>Classrooms</h3>
+<ul>
+    <li>POST /Academic/CreateClassroom</li>
+    <li>POST /Academic/UpdateClassroom</li>
+    <li>POST /Academic/DeleteClassroom (body: number roomId)</li>
+    <li>GET /Academic/GetClassroomById?roomId=1</li>
+    <li>GET /Academic/GetClassroomList?isActive=true</li>
+    <li>GET /Academic/GetAvailableRoomsBySlot?academicYear=2024-2025&dayOfWeek=1&periodNo=1</li>
+</ul>
+
+<h3>Timetable</h3>
+<ul>
+    <li>POST /Academic/UpsertTimetableEntry</li>
+    <li>POST /Academic/DeleteTimetableEntry (body: number timetableId)</li>
+    <li>GET /Academic/GetClassTimetable?academicYear=2024-2025&className=Grade%208§ion=A</li>
+    <li>GET /Academic/GetTeacherTimetable?academicYear=2024-2025&teacherUserId=10</li>
+    <li>POST /Academic/ValidateTimetableConflict</li>
+</ul>
+<pre>
+UpsertTimetableEntry sample:
+{
+  "timetableId": 0,
+  "academicYear": "2024-2025",
+  "className": "Grade 8",
+  "section": "A",
+  "dayOfWeek": 1,
+  "periodNo": 1,
+  "subjectId": 3,
+  "courseId": 12,
+  "teacherUserId": 10,
+  "roomId": 2,
+  "isActive": true
+}
+</pre>

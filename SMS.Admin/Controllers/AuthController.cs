@@ -25,7 +25,33 @@ namespace SMS.Admin.Controllers
             _mediator = mediator;
             _logger = logger;
         }
+        [HttpGet]
+        public IActionResult Index() => View();
 
+
+
+        //[HttpGet]
+        //public IActionResult GetCurrentUser()
+        //{
+        //    var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        //    if (string.IsNullOrEmpty(userId))
+        //    {
+        //        return Json(new { success = false, error = "No active user session" });
+        //    }
+
+        //    var displayName = User.FindFirstValue("DisplayName") ?? User.Identity?.Name;
+        //    var roles = User.Claims.Where(c => c.Type == ClaimTypes.Role).Select(c => c.Value).ToArray();
+
+        //    return Json(new
+        //    {
+        //        success = true,
+        //        userId,
+        //        roles,
+        //        displayName
+        //    });
+        //}
+
+        [Authorize(Roles = "Admin")]
         [HttpPost]
         public async Task<IActionResult> Register([FromBody] RegisterRequest request, CancellationToken token)
         {
@@ -52,7 +78,12 @@ namespace SMS.Admin.Controllers
             catch (System.Exception ex)
             {
                 _logger.Error(ex, "Register failed");
-                return StatusCode(500, new { success = false, error = "Registration failed" });
+                string errorMessage = ex.Message;
+                if (errorMessage.Contains("Username already exists"))
+                {
+                    errorMessage = "Username already exists";
+                }
+                return StatusCode(500, new { success = false, error = "Registration failed: "+ errorMessage });
             }
         }
 

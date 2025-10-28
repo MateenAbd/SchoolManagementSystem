@@ -1,33 +1,650 @@
 ﻿@{
-    ViewData["Title"] = "Admission Management";
+    ViewData["Title"] = "Admission";
+    var isAdmin = User?.IsInRole("Admin") == true;
 }
-<h2>Admission Management</h2>
-<p>JSON endpoints:</p>
-<ul>
-  <li>POST /Admission/CreateInquiry</li>
-  <li>POST /Admission/UpdateInquiry</li>
-  <li>POST /Admission/UpdateInquiryStatus</li>
-  <li>GET /Admission/GetInquiryById?inquiryId=1</li>
-  <li>GET /Admission/GetInquiryList?academicYear=2024-2025&interestedClass=Grade%208&leadStatus=New</li>
-  <li>POST /Admission/CreateApplication</li>
-  <li>POST /Admission/UpdateApplication</li>
-  <li>POST /Admission/UpdateApplicationStatus</li>
-  <li>GET /Admission/GetApplicationById?applicationId=1</li>
-  <li>GET /Admission/GetApplicationList?academicYear=2024-2025&classAppliedFor=Grade%208&status=Submitted</li>
+<div id="admissionPage" class="row">
+    <div class="col-12 d-flex justify-content-between align-items-center mb-3">
+        <h2 class="mb-0">Admission Management</h2>
+        <div id="admissionGlobalMsg" class="d-none"></div>
+    </div>
 
-  <li>POST /Admission/CollectApplicationFee
-body: { "applicationId": 1, "amount": 500, "currency": "INR", "paymentMode": "Cash", "referenceNo": "RCPT-001" }</li>
-  <li>GET /Admission/GetApplicationFees?applicationId=1 </li>
-  <li>GET /Admission/GetApplicationFeeSummary?academicYear=2024-2025&classAppliedFor=Grade%208 </li>
-  <li>POST /Admission/GenerateShortlist
-body: { "academicYear":"2024-2025", "classAppliedFor":"Grade 8", "minEntranceScore": 50, "topN": 100 } </li>
-  <li>GET /Admission/GetShortlist?academicYear=2024-2025&classAppliedFor=Grade%208 </li>
-  <li>POST /Admission/GenerateMeritList  body: { "academicYear":"2024-2025", "classAppliedFor":"Grade 8", "topN": 60 } </li>
-  <li>GET /Admission/GetMeritList?academicYear=2024-2025&classAppliedFor=Grade%208 </li>
+    @if (!isAdmin)
+    {
+        <div class="col-12">
+            <div class="alert alert-warning">
+                You do not have permission to access Admission features.
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="col-12">
+            <ul class="nav nav-tabs" id="admTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="tab-inq" data-bs-toggle="tab" data-bs-target="#pane-inq" type="button" role="tab">Inquiries</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="tab-app" data-bs-toggle="tab" data-bs-target="#pane-app" type="button" role="tab">Applications</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="tab-lists" data-bs-toggle="tab" data-bs-target="#pane-lists" type="button" role="tab">Shortlist & Merit</button>
+                </li>
+            </ul>
 
-  <li>POST /Admission/UploadApplicationDocument (form-data: applicationId, description?, file)</li>
-  <li>GET /Admission/GetApplicationDocuments?applicationId=1</li>
-  <li>POST /Admission/VerifyApplicationDocument (body: { documentId, verifiedByUserId, verified:true })</li>
-  <li>POST /Admission/SetApplicationDocumentsVerified (body: { applicationId, documentsVerified:true })</li>
-  <li>POST /Admission/ConfirmAdmission (body: { applicationId, section:'A', enrollmentDate:'2025-04-01T00:00:00Z' })</li>
-</ul>
+            <div class="tab-content mt-3">
+                <!-- Inquiries -->
+                <div class="tab-pane fade show active" id="pane-inq" role="tabpanel" aria-labelledby="tab-inq">
+                    <div class="card shadow-sm">
+                        <div class="card-body">
+                            <div class="row g-2 align-items-end">
+                                <div class="col-md-2">
+                                    <label class="form-label">Academic Year</label>
+                                    <input type="text" id="inqYear" class="form-control" placeholder="2025-26" />
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">Interested Class</label>
+                                    <input type="text" id="inqClass" class="form-control" />
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">Lead Status</label>
+                                    <select id="inqStatus" class="form-select">
+                                        <option value="">Any</option>
+                                        <option>New</option>
+                                        <option>Interested</option>
+                                        <option>FollowUp</option>
+                                        <option>Converted</option>
+                                        <option>Closed</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Search</label>
+                                    <input type="text" id="inqSearch" class="form-control" placeholder="Applicant/Phone/Email" />
+                                </div>
+                                <div class="col-md-3 d-flex gap-2">
+                                    <button type="button" class="btn btn-outline-secondary" id="btnInqRefresh">Refresh</button>
+                                    <button type="button" class="btn btn-primary" id="btnNewInquiry">New Inquiry</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover align-middle mb-0" id="inqTable">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th style="width:100px;">Inquiry ID</th>
+                                            <th>Applicant</th>
+                                            <th>Phone</th>
+                                            <th>Email</th>
+                                            <th>AY</th>
+                                            <th>Class</th>
+                                            <th>Status</th>
+                                            <th style="width:420px;">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr><td colspan="8" class="p-4 text-center text-muted">Loading...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="card-footer d-flex justify-content-between">
+                            <small class="text-muted">Tip: Filter and then Create App to convert an inquiry.</small>
+                            <small class="text-muted" id="inqCount"></small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Applications -->
+                <div class="tab-pane fade" id="pane-app" role="tabpanel" aria-labelledby="tab-app">
+                    <div class="card shadow-sm">
+                        <div class="card-body">
+                            <div class="row g-2 align-items-end">
+                                <div class="col-md-2">
+                                    <label class="form-label">Academic Year</label>
+                                    <input type="text" id="appYear" class="form-control" placeholder="2025-26" />
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">Class Applied</label>
+                                    <input type="text" id="appClass" class="form-control" />
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">Status</label>
+                                    <select id="appStatus" class="form-select">
+                                        <option value="">Any</option>
+                                        <option>Submitted</option>
+                                        <option>UnderReview</option>
+                                        <option>Shortlisted</option>
+                                        <option>Accepted</option>
+                                        <option>Rejected</option>
+                                        <option>Waitlisted</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Search</label>
+                                    <input type="text" id="appSearch" class="form-control" placeholder="Applicant/Phone/Email/AppNo" />
+                                </div>
+                                <div class="col-md-3 d-flex gap-2">
+                                    <button type="button" class="btn btn-outline-secondary" id="btnAppRefresh">Refresh</button>
+                                    <button type="button" class="btn btn-primary" id="btnNewApplication">New Application</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover align-middle mb-0" id="appTable">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th style="width:100px;">App ID</th>
+                                            <th>App No</th>
+                                            <th>Applicant</th>
+                                            <th>AY</th>
+                                            <th>Class</th>
+                                            <th>Status</th>
+                                            <th style="width:130px;">Applied On</th>
+                                            <th style="width:520px;">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr><td colspan="8" class="p-4 text-center text-muted">Loading...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="card-footer d-flex justify-content-between">
+                            <small class="text-muted">Manage application lifecycle: edit, status, fees, docs, confirm.</small>
+                            <small class="text-muted" id="appCount"></small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Shortlist & Merit -->
+                <div class="tab-pane fade" id="pane-lists" role="tabpanel" aria-labelledby="tab-lists">
+                    <div class="row">
+                        <div class="col-12 col-xl-6">
+                            <div class="card shadow-sm mb-4">
+                                <div class="card-header">Generate Shortlist</div>
+                                <div class="card-body">
+                                    <div id="shortMsg" class="d-none"></div>
+                                    <div class="row g-2">
+                                        <div class="col-md-4">
+                                            <label class="form-label">Academic Year</label>
+                                            <input type="text" id="shortYear" class="form-control" placeholder="2025-26" />
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label">Class</label>
+                                            <input type="text" id="shortClass" class="form-control" />
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label">Min Score</label>
+                                            <input type="number" id="shortMinScore" class="form-control" value="70" />
+                                        </div>
+                                        <div class="col-12 d-flex gap-2">
+                                            <button type="button" class="btn btn-primary" id="btnGenerateShortlist">Generate & Load</button>
+                                            <button type="button" class="btn btn-outline-secondary" id="btnLoadShortlist">Load</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="card-body p-0">
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-striped mb-0" id="shortlistTable">
+                                            <thead class="table-light">
+                                                <tr><th>Application</th><th>Applicant</th><th>Score</th></tr>
+                                            </thead>
+                                            <tbody><tr><td colspan="3" class="p-3 text-center text-muted">No data</td></tr></tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-12 col-xl-6">
+                            <div class="card shadow-sm mb-4">
+                                <div class="card-header">Generate Merit List</div>
+                                <div class="card-body">
+                                    <div id="meritMsg" class="d-none"></div>
+                                    <div class="row g-2">
+                                        <div class="col-md-4">
+                                            <label class="form-label">Academic Year</label>
+                                            <input type="text" id="meritYear" class="form-control" placeholder="2025-26" />
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label">Class</label>
+                                            <input type="text" id="meritClass" class="form-control" />
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label">Top N</label>
+                                            <input type="number" id="meritTopN" class="form-control" value="10" />
+                                        </div>
+                                        <div class="col-12 d-flex gap-2">
+                                            <button type="button" class="btn btn-primary" id="btnGenerateMerit">Generate & Load</button>
+                                            <button type="button" class="btn btn-outline-secondary" id="btnLoadMerit">Load</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="card-body p-0">
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-striped mb-0" id="meritTable">
+                                            <thead class="table-light">
+                                                <tr><th>Rank</th><th>Application</th><th>Applicant</th><th>Score</th></tr>
+                                            </thead>
+                                            <tbody><tr><td colspan="4" class="p-3 text-center text-muted">No data</td></tr></tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Modals -->
+        <!-- Inquiry Form -->
+        <div class="modal fade" id="inquiryModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="inquiryModalLabel">New Inquiry</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="inqFormMsg" class="d-none"></div>
+                        <input type="hidden" id="inquiryId" value="0" />
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Applicant Name</label>
+                                <input type="text" id="inqApplicantName" class="form-control" />
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Phone</label>
+                                <input type="text" id="inqPhone" class="form-control" />
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Email</label>
+                                <input type="email" id="inqEmail" class="form-control" />
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label">Academic Year</label>
+                                <input type="text" id="inqAcademicYear" class="form-control" placeholder="2025-26" />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Interested Class</label>
+                                <input type="text" id="inqInterestedClass" class="form-control" />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Lead Status</label>
+                                <select id="inqLeadStatus" class="form-select">
+                                    <option>New</option>
+                                    <option>Interested</option>
+                                    <option>FollowUp</option>
+                                    <option>Converted</option>
+                                    <option>Closed</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label">Source</label>
+                                <input type="text" id="inqSource" class="form-control" placeholder="Online / Walk-in / Referral" />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Follow-up Date</label>
+                                <input type="date" id="inqFollowUpDate" class="form-control" />
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Notes</label>
+                                <textarea id="inqNotes" class="form-control" rows="2"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer d-flex gap-2">
+                        <button type="button" class="btn btn-success" id="btnSaveInquiry">Save</button>
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Inquiry Status -->
+        <div class="modal fade" id="inqStatusModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-sm">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h6 class="modal-title">Update Inquiry Status</h6>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <input type="hidden" id="inqStatusInquiryId" />
+                        <label class="form-label">Status</label>
+                        <select id="inqStatusValue" class="form-select">
+                            <option>New</option>
+                            <option>Interested</option>
+                            <option>FollowUp</option>
+                            <option>Converted</option>
+                            <option>Closed</option>
+                        </select>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-success" id="btnUpdateInquiryStatus">Update</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Application Form -->
+        <div class="modal fade" id="appModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-xl modal-dialog-scrollable">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="appModalLabel">New Application</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="appFormMsg" class="d-none"></div>
+                        <input type="hidden" id="applicationId" value="0" />
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <label class="form-label">Application No</label>
+                                <input type="text" id="appApplicationNo" class="form-control" />
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Application Date</label>
+                                <input type="date" id="appApplicationDate" class="form-control" />
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Academic Year</label>
+                                <input type="text" id="appAcademicYear" class="form-control" placeholder="2025-26" />
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Class Applied</label>
+                                <input type="text" id="appClassAppliedFor" class="form-control" />
+                            </div>
+
+                            <div class="col-md-5">
+                                <label class="form-label">Applicant Name</label>
+                                <input type="text" id="appApplicantName" class="form-control" />
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">DOB</label>
+                                <input type="date" id="appDob" class="form-control" />
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Gender</label>
+                                <select id="appGender" class="form-select">
+                                    <option value="">Select</option>
+                                    <option>Male</option>
+                                    <option>Female</option>
+                                    <option>Other</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Status</label>
+                                <select id="appStatusValue" class="form-select">
+                                    <option>Submitted</option>
+                                    <option>UnderReview</option>
+                                    <option>Shortlisted</option>
+                                    <option>Accepted</option>
+                                    <option>Rejected</option>
+                                    <option>Waitlisted</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label">Email</label>
+                                <input type="email" id="appEmail" class="form-control" />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Phone</label>
+                                <input type="text" id="appPhone" class="form-control" />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Previous School</label>
+                                <input type="text" id="appPreviousSchool" class="form-control" />
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label">Parent Name</label>
+                                <input type="text" id="appParentName" class="form-control" />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Parent Phone</label>
+                                <input type="text" id="appParentPhone" class="form-control" />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Parent Email</label>
+                                <input type="email" id="appParentEmail" class="form-control" />
+                            </div>
+
+                            <div class="col-12">
+                                <label class="form-label">Address</label>
+                                <textarea id="appAddress" class="form-control" rows="2"></textarea>
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label">Category</label>
+                                <input type="text" id="appCategory" class="form-control" />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Total Marks</label>
+                                <input type="number" step="0.01" id="appTotalMarks" class="form-control" />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Entrance Score</label>
+                                <input type="number" step="0.01" id="appEntranceScore" class="form-control" />
+                            </div>
+
+                            <div class="col-md-3">
+                                <label class="form-label">Inquiry Id (optional)</label>
+                                <input type="number" id="appInquiryId" class="form-control" />
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Documents Verified</label>
+                                <select id="appDocumentsVerified" class="form-select">
+                                    <option value="false">No</option>
+                                    <option value="true">Yes</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer d-flex gap-2">
+                        <button type="button" class="btn btn-success" id="btnSaveApplication">Save</button>
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Application Status -->
+        <div class="modal fade" id="appStatusModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-sm">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h6 class="modal-title">Update Application Status</h6>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <input type="hidden" id="appStatusAppId" />
+                        <label class="form-label">Status</label>
+                        <select id="appStatusNew" class="form-select">
+                            <option>Submitted</option>
+                            <option>UnderReview</option>
+                            <option>Shortlisted</option>
+                            <option>Accepted</option>
+                            <option>Rejected</option>
+                            <option>Waitlisted</option>
+                        </select>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-success" id="btnUpdateAppStatus">Update</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Fees Modal -->
+        <div class="modal fade" id="feesModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Application Fees - <span id="feesAppLabel">-</span></h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="feesMsg" class="d-none"></div>
+                        <input type="hidden" id="feesAppId" />
+                        <div class="row g-2 align-items-end mb-3">
+                            <div class="col-md-3">
+                                <label class="form-label">Amount</label>
+                                <input type="number" step="0.01" id="feeAmount" class="form-control" />
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Currency</label>
+                                <select id="feeCurrency" class="form-select">
+                                    <option>INR</option>
+                                    <option>USD</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Payment Mode</label>
+                                <select id="feeMode" class="form-select">
+                                    <option>Cash</option>
+                                    <option>UPI</option>
+                                    <option>Card</option>
+                                    <option>Online</option>
+                                    <option>Cheque</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Reference No</label>
+                                <input type="text" id="feeRef" class="form-control" placeholder="Txn/Ref no." />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Payment Date</label>
+                                <input type="datetime-local" id="feePaymentDate" class="form-control" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Remarks</label>
+                                <input type="text" id="feeRemarks" class="form-control" />
+                            </div>
+                            <div class="col-md-12 d-grid">
+                                <button type="button" class="btn btn-success" id="btnCollectFee">Collect</button>
+                            </div>
+                        </div>
+
+                        <div class="row g-3">
+                            <div class="col-12 col-md-6">
+                                <div class="card">
+                                    <div class="card-header">Fee Summary (AY/Class)</div>
+                                    <div class="card-body">
+                                        <pre id="feeSummaryBox" class="mb-0" style="white-space:pre-wrap;"></pre>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-striped" id="feesTable">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th style="width:110px;">Payment ID</th>
+                                                <th style="width:100px;">Amount</th>
+                                                <th style="width:100px;">Mode</th>
+                                                <th style="width:180px;">On</th>
+                                                <th>Reference</th>
+                                                <th>Remarks</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody><tr><td colspan="6" class="p-3 text-center text-muted">No payments</td></tr></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Application Documents -->
+        <div class="modal fade" id="appDocsModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-xl modal-dialog-scrollable">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Application Documents - <span id="docsAppLabel">-</span></h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="appDocsMsg" class="d-none"></div>
+                        <input type="hidden" id="docsAppId" />
+                        <div class="row g-2 mb-3">
+                            <div class="col-md-4"><input type="file" id="appDocFile" class="form-control" /></div>
+                            <div class="col-md-6"><input type="text" id="appDocDesc" class="form-control" placeholder="Description (optional)" /></div>
+                            <div class="col-md-2 d-grid"><button class="btn btn-primary" id="btnUploadAppDoc">Upload</button></div>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <div class="small text-muted">Allowed: pdf/docx/doc/png/jpg/jpeg up to 50MB</div>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-sm btn-outline-success" id="btnMarkAllDocsVerified">Mark All Verified</button>
+                            </div>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-striped align-middle" id="appDocsTable">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="width:100px;">Doc ID</th>
+                                        <th>File</th>
+                                        <th>Description</th>
+                                        <th style="width:180px;">Uploaded On</th>
+                                        <th style="width:110px;">Verified</th>
+                                        <th style="width:140px;">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody><tr><td colspan="6" class="p-3 text-center text-muted">No documents</td></tr></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Confirm Admission -->
+        <div class="modal fade" id="confirmModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-md">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Confirm Admission - <span id="confirmAppLabel">-</span></h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="confirmMsg" class="d-none"></div>
+                        <input type="hidden" id="confirmAppId" />
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Section</label>
+                                <input type="text" id="confirmSection" class="form-control" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Enrollment Date</label>
+                                <input type="date" id="confirmEnrollDate" class="form-control" />
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer d-flex gap-2">
+                        <button class="btn btn-success" id="btnConfirmAdmission">Confirm</button>
+                        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    }
+</div>
+
+@section Scripts {
+    <script src="/js/script/admission.js?v=part2"></script>
+}

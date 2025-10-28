@@ -18,6 +18,7 @@ CREATE TABLE dbo.Users
 CREATE UNIQUE INDEX UX_Users_NormalizedUserName ON dbo.Users(NormalizedUserName);
 CREATE UNIQUE INDEX UX_Users_NormalizedEmail ON dbo.Users(NormalizedEmail);
 
+
 GO
 
 CREATE OR ALTER PROCEDURE CreateUser
@@ -46,7 +47,7 @@ BEGIN
 END
 GO
 
--- Set password hash
+
 CREATE OR ALTER PROCEDURE SetUserPasswordHash
     @UserId INT,
     @PasswordHash NVARCHAR(500)
@@ -140,7 +141,7 @@ BEGIN
 END
 GO
 
--- Remove role from user
+
 CREATE OR ALTER PROCEDURE RemoveRoleFromUser
     @UserId INT,
     @RoleName NVARCHAR(100)
@@ -201,10 +202,7 @@ CREATE TABLE Students
     UserId INT NULL,
     CONSTRAINT FK_Students_Users_UserId FOREIGN KEY (UserId) REFERENCES Users(UserId) 
 );
---run in office pcs
---ALTER TABLE dbo.Students ADD UserId INT NULL;
---ALTER TABLE dbo.Students
-    --ADD CONSTRAINT FK_Students_Users_UserId FOREIGN KEY (UserId) REFERENCES dbo.Users(UserId);
+
 GO
 
 CREATE OR ALTER PROCEDURE AddStudent
@@ -229,7 +227,7 @@ BEGIN
     VALUES
     (@AdmissionNo, @FirstName, @LastName, @ClassName, @Section, @Gender, @Email, @Phone, @Address, @GuardianName, @HealthInfo, @PhotoUrl);
 
-    DECLARE @NewId INT = CONVERT(INT, SCOPE_IDENTITY()); --COPE_IDENTITY() returns the last identity value inserted into an IDENTITY, so StudentId inserted is returned
+    DECLARE @NewId INT = CONVERT(INT, SCOPE_IDENTITY()); --scopeIdentity returns the last identity value inserted into an IDENTITY, so StudentId inserted is returned
 
     IF (@AdmissionNo IS NULL)
     BEGIN

@@ -35,7 +35,7 @@ namespace SMS.Core.Interfaces
         /// <para>Execute any Stored Procedure where a single item is expected as a return.</para>
         /// </summary>
         /// <typeparam name="T">The type that matches the database table.</typeparam>
-        /// <param name="token">Cancellation Token</param>
+        /// <param name="token">Cancellation Token</param>*-
         /// <param name="storedProcedureName">Name of the stored procedure to be executed.</param>
         /// <param name="parameters">Optional set of parameters that matches the query.</param>
         /// <returns>A single instance of type T.</returns>

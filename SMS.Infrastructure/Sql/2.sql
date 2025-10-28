@@ -44,7 +44,7 @@ CREATE TABLE dbo.AdmissionApplications
     UpdatedAtUtc DATETIME2 NULL,
     StudentId INT NULL,
     CONSTRAINT FK_AdmissionApplications_Inquiries FOREIGN KEY (InquiryId) REFERENCES dbo.AdmissionInquiries(InquiryId),
-    CONSTRAINT FK_AdmissionApplications_Students FOREIGN KEY (StudentId) REFERENCES dbo.Students(StudentId)
+    CONSTRAINT FK_AdmissionApplications_Students FOREIGN KEY (StudentId) REFERENCES dbo.Students(StudentId) ON DELETE CASCADE
 );
 CREATE INDEX IX_Applications_Year_Class_Status ON dbo.AdmissionApplications(AcademicYear, ClassAppliedFor, Status);
 
@@ -644,7 +644,7 @@ BEGIN
 END
 GO
 
--- Confirm Admission: creates Student and Enrollment, links back to application
+
 CREATE OR ALTER PROCEDURE ConfirmAdmission
     @ApplicationId INT,
     @Section NVARCHAR(10) = NULL,
@@ -665,7 +665,8 @@ BEGIN
             @AcademicYear NVARCHAR(15),
             @Gender NVARCHAR(20),
             @DocumentsVerified BIT,
-            @Status NVARCHAR(50);
+            @Status NVARCHAR(50),
+            @InquiryId INT;
 
     SELECT
         @ApplicantName = ApplicantName,
@@ -677,11 +678,11 @@ BEGIN
         @AcademicYear = AcademicYear,
         @Gender = Gender,
         @DocumentsVerified = DocumentsVerified,
-        @Status = Status
+        @Status = Status,
+        @InquiryId = InquiryId
     FROM dbo.AdmissionApplications
     WHERE ApplicationId = @ApplicationId;
 
-    -- Optional safety checks
     IF (@DocumentsVerified = 0)
         THROW 52012, 'Documents not verified', 1;
 
@@ -690,7 +691,7 @@ BEGIN
 
     BEGIN TRAN;
 
-    -- Create student
+    --create student
     INSERT INTO dbo.Students
     (AdmissionNo, FirstName, LastName, ClassName, Section, Gender, Email, Phone, Address, GuardianName, HealthInfo, PhotoUrl)
     VALUES
@@ -698,23 +699,31 @@ BEGIN
 
     DECLARE @NewStudentId INT = CONVERT(INT, SCOPE_IDENTITY());
 
-    -- Generate AdmissionNo if null
+    --generate AdmissionNo if null
     DECLARE @GenAdm NVARCHAR(50) = 'STD-' + FORMAT(GETDATE(), 'yyyy') + '-' + RIGHT('000000' + CAST(@NewStudentId AS VARCHAR(6)), 6);
     UPDATE dbo.Students SET AdmissionNo = @GenAdm WHERE StudentId = @NewStudentId;
 
-    -- Enrollment
-    -- Deactivate existing enrollments for same year (safety)
+    -- deactivate existing enrollments for same year (safety)
     UPDATE dbo.StudentEnrollments SET IsActive = 0 WHERE StudentId = @NewStudentId AND AcademicYear = @AcademicYear;
 
     INSERT INTO dbo.StudentEnrollments (StudentId, AcademicYear, ClassName, Section, EnrollmentDate, IsActive)
     VALUES (@NewStudentId, @AcademicYear, @ClassAppliedFor, @Section, @EnrollmentDate, 1);
 
-    -- Update application
+    -- update application
     UPDATE dbo.AdmissionApplications
     SET Status = 'Confirmed',
         StudentId = @NewStudentId,
         UpdatedAtUtc = SYSUTCDATETIME()
     WHERE ApplicationId = @ApplicationId;
+
+    --update inquiryif it exists
+    IF (@InquiryId IS NOT NULL)
+    BEGIN   
+        UPDATE dbo.AdmissionInquiries
+        SET LeadStatus = 'Converted',
+            UpdatedAtUtc = SYSUTCDATETIME()
+        WHERE InquiryId = @InquiryId;
+    END
 
     COMMIT;
 

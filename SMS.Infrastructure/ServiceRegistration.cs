@@ -18,7 +18,8 @@ namespace SMS.Infrastructure
             services.AddTransient<IUnitOfWork, UnitOfWork>();
 
             services.AddSingleton<IPasswordHasher, PasswordHasherService>();
-
+            services.AddSingleton<IEmailSender, SmtpEmailSender>();
+            services.AddSingleton<ISmsSender, DummySmsSender>();
 
         }
     }

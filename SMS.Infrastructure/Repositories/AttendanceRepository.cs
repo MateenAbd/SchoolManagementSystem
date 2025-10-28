@@ -234,5 +234,136 @@ namespace SMS.Infrastructure.Repositories
             };
             return _db.ExecuteSpListAsync<StaffAttendance>(token, "GetStaffDailyAttendance", p);
         }
+
+
+        public async Task<int> AutoMarkStudentApprovedLeavesRangeAsync(CancellationToken token, DateTime fromDate, DateTime toDate)
+        {
+            var p = new List<ParametersCollection>
+            {
+                new() { ParameterName = "@FromDate", ParameterValue = fromDate.Date, ParameterType = DbType.Date, ParameterDirection = ParameterDirection.Input },
+                new() { ParameterName = "@ToDate", ParameterValue = toDate.Date, ParameterType = DbType.Date, ParameterDirection = ParameterDirection.Input }
+            };
+            return (int)await _db.ExecuteSpReturnValueAsync(token, "AutoMarkStudentApprovedLeavesRange", p);
+        }
+
+        public async Task<int> AutoMarkStaffApprovedLeavesRangeAsync(CancellationToken token, DateTime fromDate, DateTime toDate)
+        {
+            var p = new List<ParametersCollection>
+            {
+                new() { ParameterName = "@FromDate", ParameterValue = fromDate.Date, ParameterType = DbType.Date, ParameterDirection = ParameterDirection.Input },
+                new() { ParameterName = "@ToDate", ParameterValue = toDate.Date, ParameterType = DbType.Date, ParameterDirection = ParameterDirection.Input }
+            };
+            return (int)await _db.ExecuteSpReturnValueAsync(token, "AutoMarkStaffApprovedLeavesRange", p);
+        }
+
+        public Task<IEnumerable<StudentAttendanceSummary>> GetDailyStudentAttendanceSummaryAsync(CancellationToken token, DateTime attendanceDate, string? className, string? section)
+        {
+            var p = new List<ParametersCollection>
+            {
+                new() { ParameterName = "@AttendanceDate", ParameterValue = attendanceDate.Date, ParameterType = DbType.Date, ParameterDirection = ParameterDirection.Input },
+                new() { ParameterName = "@ClassName", ParameterValue = className, ParameterType = DbType.String, ParameterDirection = ParameterDirection.Input },
+                new() { ParameterName = "@Section", ParameterValue = section, ParameterType = DbType.String, ParameterDirection = ParameterDirection.Input }
+            };
+            return _db.ExecuteSpListAsync<StudentAttendanceSummary>(token, "GetDailyStudentAttendanceSummary", p);
+        }
+
+        public Task<StaffAttendanceSummary?> GetDailyStaffAttendanceSummaryAsync(CancellationToken token, DateTime attendanceDate)
+        {
+            var p = new List<ParametersCollection>
+            {
+                new() { ParameterName = "@AttendanceDate", ParameterValue = attendanceDate.Date, ParameterType = DbType.Date, ParameterDirection = ParameterDirection.Input }
+            };
+            return _db.ExecuteSpSingleAsync<StaffAttendanceSummary>(token, "GetDailyStaffAttendanceSummary", p);
+        }
+
+        // ---- Biometric devices & mapping ----
+        public async Task<int> RegisterBiometricDeviceAsync(CancellationToken token, BiometricDevice device)
+        {
+            try
+            {
+                var p = new List<ParametersCollection>
+        {
+            new() { ParameterName = "@Name", ParameterValue = device.Name, ParameterType = DbType.String, ParameterDirection = ParameterDirection.Input },
+            new() { ParameterName = "@SerialNo", ParameterValue = device.SerialNo, ParameterType = DbType.String, ParameterDirection = ParameterDirection.Input },
+            new() { ParameterName = "@Vendor", ParameterValue = device.Vendor, ParameterType = DbType.String, ParameterDirection = ParameterDirection.Input },
+            new() { ParameterName = "@IsActive", ParameterValue = device.IsActive, ParameterType = DbType.Boolean, ParameterDirection = ParameterDirection.Input }
+        };
+                return (int)await _db.ExecuteSpReturnValueAsync(token, "RegisterBiometricDevice", p);
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "RegisterBiometricDevice failed");
+                throw;
+            }
+        }
+
+        public async Task<int> UpsertBiometricUserMapAsync(CancellationToken token, BiometricUserMap map)
+        {
+            var p = new List<ParametersCollection>
+            {
+                new() { ParameterName = "@DeviceId", ParameterValue = map.DeviceId, ParameterType = DbType.Int32, ParameterDirection = ParameterDirection.Input },
+                new() { ParameterName = "@ExternalUserId", ParameterValue = map.ExternalUserId, ParameterType = DbType.String, ParameterDirection = ParameterDirection.Input },
+                new() { ParameterName = "@PersonType", ParameterValue = map.PersonType, ParameterType = DbType.String, ParameterDirection = ParameterDirection.Input },
+                new() { ParameterName = "@StudentId", ParameterValue = map.StudentId, ParameterType = DbType.Int32, ParameterDirection = ParameterDirection.Input },
+                new() { ParameterName = "@UserId", ParameterValue = map.UserId, ParameterType = DbType.Int32, ParameterDirection = ParameterDirection.Input },
+                new() { ParameterName = "@IsActive", ParameterValue = map.IsActive, ParameterType = DbType.Boolean, ParameterDirection = ParameterDirection.Input }
+            };
+            return (int)await _db.ExecuteSpReturnValueAsync(token, "UpsertBiometricUserMap", p);
+        }
+
+        public Task<IEnumerable<BiometricDevice>> GetBiometricDevicesAsync(CancellationToken token, bool? isActive)
+        {
+            var p = new List<ParametersCollection>
+            {
+                new() { ParameterName = "@IsActive", ParameterValue = isActive, ParameterType = DbType.Boolean, ParameterDirection = ParameterDirection.Input }
+            };
+            return _db.ExecuteSpListAsync<BiometricDevice>(token, "GetBiometricDevices", p);
+        }
+
+        public Task<IEnumerable<BiometricUserMap>> GetBiometricUserMapsAsync(CancellationToken token, int? deviceId, string? personType)
+        {
+            var p = new List<ParametersCollection>
+            {
+                new() { ParameterName = "@DeviceId", ParameterValue = deviceId, ParameterType = DbType.Int32, ParameterDirection = ParameterDirection.Input },
+                new() { ParameterName = "@PersonType", ParameterValue = personType, ParameterType = DbType.String, ParameterDirection = ParameterDirection.Input }
+            };
+            return _db.ExecuteSpListAsync<BiometricUserMap>(token, "GetBiometricUserMaps", p);
+        }
+
+        // ---- Raw punches import + processing ----
+        public async Task<long> ImportRawPunchAsync(CancellationToken token, BiometricRawPunch punch)
+        {
+            var p = new List<ParametersCollection>
+            {
+                new() { ParameterName = "@DeviceId", ParameterValue = punch.DeviceId, ParameterType = DbType.Int32, ParameterDirection = ParameterDirection.Input },
+                new() { ParameterName = "@ExternalUserId", ParameterValue = punch.ExternalUserId, ParameterType = DbType.String, ParameterDirection = ParameterDirection.Input },
+                new() { ParameterName = "@PunchTime", ParameterValue = punch.PunchTime, ParameterType = DbType.DateTime2, ParameterDirection = ParameterDirection.Input },
+                new() { ParameterName = "@Direction", ParameterValue = punch.Direction, ParameterType = DbType.String, ParameterDirection = ParameterDirection.Input },
+                new() { ParameterName = "@Source", ParameterValue = punch.Source, ParameterType = DbType.String, ParameterDirection = ParameterDirection.Input }
+            };
+            var id = await _db.ExecuteSpReturnValueAsync(token, "InsertBiometricRawPunch", p);
+            return id;
+        }
+
+        public async Task<int> ImportRawPunchesAsync(CancellationToken token, IEnumerable<BiometricRawPunch> punches)
+        {
+            var count = 0;
+            foreach (var punch in punches)
+            {
+                try { await ImportRawPunchAsync(token, punch); count++; }
+                catch { /* swallow duplicates (unique idx) */ }
+            }
+            return count;
+        }
+
+        public async Task<int> ProcessBiometricPunchesAsync(CancellationToken token, DateTime fromDate, DateTime toDate)
+        {
+            var p = new List<ParametersCollection>
+            {
+                new() { ParameterName = "@FromDate", ParameterValue = fromDate.Date, ParameterType = DbType.Date, ParameterDirection = ParameterDirection.Input },
+                new() { ParameterName = "@ToDate", ParameterValue = toDate.Date, ParameterType = DbType.Date, ParameterDirection = ParameterDirection.Input }
+            };
+            return (int)await _db.ExecuteSpReturnValueAsync(token, "ProcessBiometricPunches", p);
+        }
     }
 }

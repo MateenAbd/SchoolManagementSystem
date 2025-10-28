@@ -56,7 +56,7 @@ namespace SMS.Admin.Controllers
                 return StatusCode(500, new { success = false, error = "Add failed" });
             }
         }
-
+        [Authorize(Roles = "Admin")]
         [HttpGet]
         public async Task<IActionResult> GetStudentById(int studentId, CancellationToken token)
         {
@@ -72,7 +72,7 @@ namespace SMS.Admin.Controllers
                 return StatusCode(500);
             }
         }
-
+        [Authorize(Roles = "Admin")]
         [HttpGet]
         public async Task<IActionResult> GetStudentList(CancellationToken token)
         {
@@ -206,7 +206,7 @@ namespace SMS.Admin.Controllers
                 return StatusCode(500, new { success = false, error = "Upload failed" });
             }
         }
-
+        [Authorize(Roles = "Admin")]
         [HttpGet]
         public async Task<IActionResult> GetStudentDocuments(int studentId, CancellationToken token)
         {
@@ -259,7 +259,7 @@ namespace SMS.Admin.Controllers
                 return StatusCode(500, new { success = false, error = "Save failed" });
             }
         }
-
+        [Authorize(Roles = "Admin")]
         [HttpGet]
         public async Task<IActionResult> GetEnrollmentByStudent([FromQuery] int studentId, CancellationToken token)
         {

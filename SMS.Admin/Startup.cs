@@ -7,9 +7,14 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using SMS.Application.Behaviors;
+using SMS.Application.Commands.Identity;
 using SMS.Application.Mapper;
+using SMS.Application.Validators.Identity;
+using SMS.Application.Validators;
 using SMS.Infrastructure;
 using System;
+using FluentValidation;
 
 namespace SMS.Admin
 {
@@ -57,12 +62,22 @@ namespace SMS.Admin
             services.AddAuthorization();
 
 
+
             services.AddInfrastructure();
             services.AddAutoMapper(config =>
             {
                 config.AddProfile<MappingProfile>();
             });
-            services.AddMediatR(AppDomain.CurrentDomain.GetAssemblies());
+            //services.AddMediatR(AppDomain.CurrentDomain.GetAssemblies());
+
+            services.AddValidatorsFromAssemblyContaining<CreateUserCommandValidator>();
+            services.AddMediatR(cfg =>
+            {
+                cfg.RegisterServicesFromAssemblyContaining<CreateUserCommandValidator>();
+                cfg.RegisterServicesFromAssemblyContaining<ValidationBehavior<CreateUserCommand, int>>();
+
+                cfg.AddBehavior(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
+            });
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -87,13 +102,14 @@ namespace SMS.Admin
 
             app.UseStaticFiles();
             app.UseRouting();
+            app.UseAuthentication();
             app.UseAuthorization();
 
             app.UseEndpoints(endpoints =>
             {
                 endpoints.MapControllerRoute(
                     name: "default",
-                    pattern: "{controller=Student}/{action=Index}/{id?}");
+                    pattern: "{controller=Auth}/{action=Index}/{id?}");
             });
         }
     }

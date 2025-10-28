@@ -30,5 +30,24 @@ namespace SMS.Application.Interfaces
         Task<int> DeleteStaffAttendanceAsync(CancellationToken token, int attendanceId);
         Task<IEnumerable<StaffAttendance>> GetStaffAttendanceRangeAsync(CancellationToken token, int userId, DateTime fromDate, DateTime toDate);
         Task<IEnumerable<StaffAttendance>> GetStaffDailyAttendanceAsync(CancellationToken token, DateTime attendanceDate, string? status);
+
+        // Auto-mark approved leaves
+        Task<int> AutoMarkStudentApprovedLeavesRangeAsync(CancellationToken token, DateTime fromDate, DateTime toDate);
+        Task<int> AutoMarkStaffApprovedLeavesRangeAsync(CancellationToken token, DateTime fromDate, DateTime toDate);
+
+        // Daily summaries
+        Task<IEnumerable<StudentAttendanceSummary>> GetDailyStudentAttendanceSummaryAsync(CancellationToken token, DateTime attendanceDate, string? className, string? section);
+        Task<StaffAttendanceSummary?> GetDailyStaffAttendanceSummaryAsync(CancellationToken token, DateTime attendanceDate);
+
+        // Biometric devices and mapping
+        Task<int> RegisterBiometricDeviceAsync(CancellationToken token, BiometricDevice device);
+        Task<int> UpsertBiometricUserMapAsync(CancellationToken token, BiometricUserMap map);
+        Task<IEnumerable<BiometricDevice>> GetBiometricDevicesAsync(CancellationToken token, bool? isActive);
+        Task<IEnumerable<BiometricUserMap>> GetBiometricUserMapsAsync(CancellationToken token, int? deviceId, string? personType);
+
+        // Raw punches import + processing
+        Task<long> ImportRawPunchAsync(CancellationToken token, BiometricRawPunch punch);
+        Task<int> ImportRawPunchesAsync(CancellationToken token, IEnumerable<BiometricRawPunch> punches);
+        Task<int> ProcessBiometricPunchesAsync(CancellationToken token, DateTime fromDate, DateTime toDate);
     }
 }

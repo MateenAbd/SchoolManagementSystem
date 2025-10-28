@@ -1,194 +1,363 @@
 ﻿@{
-    ViewData["Title"] = "Students";
+    ViewData["Title"] = "Student";
+    var isAdmin = User?.IsInRole("Admin") == true;
 }
-<h2>Students</h2>
-<p>JSON endpoints:</p>
-<ul>
-    <li><input type="checkbox" id="getStudentList"> <label for="getStudentList">GET /Student/GetStudentList</label></li>
-    <li><input type="checkbox" id="getStudentById"> <label for="getStudentById">GET /Student/GetStudentById?studentId=1</label></li>
-    <li><input type="checkbox" id="addStudent"> <label for="addStudent">POST /Student/AddStudent</label></li>
-    <li><input type="checkbox" id="updateStudent"> <label for="updateStudent">PUT /Student/UpdateStudent</label></li>
-    <li><input type="checkbox" id="deleteStudentById"> <label for="deleteStudentById">DELETE /Student/DeleteStudentById</label></li>
-    <li><input type="checkbox" id="uploadPhoto"> <label for="uploadPhoto">POST /Student/UploadPhoto (form-data: studentId, file)</label></li>
-    <li><input type="checkbox" id="uploadDocument"> <label for="uploadDocument">POST /Student/UploadDocument (form-data: studentId, description?, file)</label></li>
-    <li><input type="checkbox" id="getStudentDocuments"> <label for="getStudentDocuments">GET /Student/GetStudentDocuments?studentId=1</label></li>
-    <li><input type="checkbox" id="deleteStudentDocumentById"> <label for="deleteStudentDocumentById">DELETE /Student/DeleteStudentDocumentById (body: number documentId)</label></li>
-    <li><input type="checkbox" id="addOrUpdateEnrollment"> <label for="addOrUpdateEnrollment">POST /Student/AddOrUpdateEnrollment (body: StudentEnrollmentDto)</label></li>
-    <li><input type="checkbox" id="getEnrollmentByStudent"> <label for="getEnrollmentByStudent">GET /Student/GetEnrollmentByStudent?studentId=1</label></li>
-</ul>
-
-
-
-
-@* @{
-    ViewData["Title"] = "Students";
-}
-<h2>Students</h2>
-<p>JSON endpoints:</p>
-<ul>
-    <li>GET /Student/GetStudentList</li>
-    <li>GET /Student/GetStudentById?studentId=1</li>
-    <li>POST /Student/AddStudent</li>
-    <li>PUT /Student/UpdateStudent</li>
-    <li>DELETE /Student/DeleteStudentById</li>
-    <li>POST /Student/UploadPhoto (form-data: studentId, file)</li>
-    <li>POST /Student/UploadDocument (form-data: studentId, description?, file)</li>
-    <li>GET /Student/GetStudentDocuments?studentId=1</li>
-    <li>POST /Student/DeleteStudentDocumentById (body: number documentId)</li>
-    <li>POST /Student/AddOrUpdateEnrollment (body: StudentEnrollmentDto)</li>
-    <li>GET /Student/GetEnrollmentByStudent?studentId=1</li>
-</ul> *@
-
-
-
-
-
-
-@* @{
-    ViewData["Title"] = "Student Management";
-}
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8" />
-    <title>@ViewData["Title"]</title>
-
-    <!-- Styles -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css" />
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@26.2.0/dist/styles/ag-grid.css" />
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@26.2.0/dist/styles/ag-theme-balham.css" />
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/parsleyjs@2.9.2/src/parsley.css" />
-    <style>
-        .ag-theme-balham {
-            height: 520px;
-            width: 100%;
+<div class="row" id="studentPage">
+    <div class="col-12 d-flex align-items-center justify-content-between mb-3">
+        <h2 class="mb-0">Student Management</h2>
+        @if (isAdmin)
+        {
+            <div class="d-flex gap-2">
+                <input type="text" class="form-control" id="txtSearch" placeholder="Search by name/class/section..." style="max-width:320px" />
+                <button type="button" class="btn btn-outline-secondary" id="btnRefreshStudents">Refresh</button>
+                <button type="button" class="btn btn-primary" id="btnNewStudent">New Student</button>
+            </div>
         }
-
-        .modal .parsley-errors-list {
-            list-style: none;
-            color: #dc3545;
-            padding-left: 0;
-            margin-top: .25rem;
-            font-size: .875rem;
-        }
-
-        .toolbar .form-inline > * {
-            margin-right: .5rem;
-        }
-    </style>
-</head>
-<body class="container py-4">
-
-    <div class="toolbar d-flex align-items-center justify-content-between mb-3">
-        <h3 class="mb-0">Students</h3>
-        <div class="form-inline">
-            <input id="txtFindId" class="form-control" type="number" placeholder="Student ID" style="width: 140px;">
-            <button id="btnFindById" class="btn btn-outline-primary">Get by ID</button>
-            <button id="btnRefresh" class="btn btn-outline-secondary">Refresh</button>
-            <button id="btnOpenAdd" class="btn btn-success">Add Student</button>
-        </div>
     </div>
 
-    <div id="StudentsGrid" class="ag-theme-balham"></div>
+    <div class="col-12">
+        <div id="studentGlobalMsg" class="d-none"></div>
+    </div>
 
-    <!-- Add/Edit Modal -->
-    <div class="modal fade" id="studentModal" tabindex="-1" role="dialog" aria-labelledby="studentModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg" role="document">
+    @if (!isAdmin)
+    {
+        <div class="col-12">
+            <div class="alert alert-warning">You do not have permission to access the Student module.</div>
+        </div>
+    }
+    else
+    {
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover align-middle mb-0" id="studentTable">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width:80px;">ID</th>
+                                    <th>Name</th>
+                                    <th style="width:120px;">Class</th>
+                                    <th style="width:120px;">Section</th>
+                                    <th style="width:460px;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr><td colspan="5" class="p-4 text-center text-muted">Loading...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card-footer d-flex justify-content-between">
+                    <small class="text-muted">Tip: Use search to quickly filter students.</small>
+                    <small class="text-muted" id="studentCount"></small>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@if (isAdmin)
+{
+    <!-- Student Form Modal (Add/Update) -->
+    <div class="modal fade" id="studentModal" tabindex="-1" aria-labelledby="studentModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
             <div class="modal-content">
-                <form id="studentForm" data-parsley-validate novalidate>
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="studentModalLabel">Add Student</h5>
-                        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span>&times;</span></button>
-                    </div>
-
-                    <div class="modal-body">
-                        <input type="hidden" id="studentId" name="studentId" />
-
-                        <div class="form-row">
-                            <div class="form-group col-md-4">
-                                <label for="admissionNo">Admission No</label>
-                                <input id="admissionNo" name="admissionNo" class="form-control" required data-parsley-required-message="Admission No is required" />
-                            </div>
-                            <div class="form-group col-md-4">
-                                <label for="firstName">First Name</label>
-                                <input id="firstName" name="firstName" class="form-control" required data-parsley-required-message="First name is required" />
-                            </div>
-                            <div class="form-group col-md-4">
-                                <label for="lastName">Last Name</label>
-                                <input id="lastName" name="lastName" class="form-control" required data-parsley-required-message="Last name is required" />
-                            </div>
+                <div class="modal-header">
+                    <h5 class="modal-title" id="studentModalLabel">Add Student</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="studentFormMsg" class="d-none"></div>
+                    <input type="hidden" id="studentId" value="0" />
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">First Name</label>
+                            <input type="text" class="form-control" id="firstName" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Last Name</label>
+                            <input type="text" class="form-control" id="lastName" />
                         </div>
 
-                        <div class="form-row">
-                            <div class="form-group col-md-4">
-                                <label for="className">Class</label>
-                                <input id="className" name="className" class="form-control" />
-                            </div>
-                            <div class="form-group col-md-4">
-                                <label for="section">Section</label>
-                                <input id="section" name="section" class="form-control" />
-                            </div>
-                            <div class="form-group col-md-4">
-                                <label for="gender">Gender</label>
-                                <select id="gender" name="gender" class="form-control">
-                                    <option value="">Select</option>
-                                    <option>Male</option>
-                                    <option>Female</option>
-                                    <option>Other</option>
-                                </select>
-                            </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Class</label>
+                            <input type="text" class="form-control" id="className" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Section</label>
+                            <input type="text" class="form-control" id="section" />
                         </div>
 
-                        <div class="form-row">
-                            <div class="form-group col-md-6">
-                                <label for="email">Email</label>
-                                <input id="email" name="email" type="email" class="form-control" data-parsley-type="email" />
-                            </div>
-                            <div class="form-group col-md-6">
-                                <label for="phone">Phone</label>
-                                <input id="phone" name="phone" class="form-control" data-parsley-pattern="^\\d{10}$" data-parsley-pattern-message="Enter 10 digits" />
-                            </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Date of Birth</label>
+                            <input type="date" class="form-control" id="dob" />
                         </div>
 
-                        <div class="form-group">
-                            <label for="address">Address</label>
-                            <input id="address" name="address" class="form-control" />
+                        <div class="col-md-4">
+                            <label class="form-label">Gender</label>
+                            <select class="form-select" id="gender">
+                                <option value="">Select</option>
+                                <option>Male</option>
+                                <option>Female</option>
+                                <option>Other</option>
+                            </select>
                         </div>
 
-                        <div class="form-row">
-                            <div class="form-group col-md-6">
-                                <label for="guardianName">Guardian Name</label>
-                                <input id="guardianName" name="guardianName" class="form-control" />
-                            </div>
-                            <div class="form-group col-md-6">
-                                <label for="photoUrl">Photo URL</label>
-                                <input id="photoUrl" name="photoUrl" class="form-control" />
-                            </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Guardian Name</label>
+                            <input type="text" class="form-control" id="guardianName" />
                         </div>
 
-                        <div class="form-group">
-                            <label for="healthInfo">Health Info</label>
-                            <textarea id="healthInfo" name="healthInfo" class="form-control" rows="3"></textarea>
+                        <div class="col-md-6">
+                            <label class="form-label">Email</label>
+                            <input type="email" class="form-control" id="email" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Phone</label>
+                            <input type="text" class="form-control" id="phone" />
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label">Address</label>
+                            <textarea class="form-control" id="address" rows="2"></textarea>
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label">Health Info</label>
+                            <textarea class="form-control" id="healthInfo" rows="2" placeholder="Allergies, conditions, notes..."></textarea>
                         </div>
                     </div>
-
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-                        <button id="btnSaveStudent" type="submit" class="btn btn-primary">Save</button>
-                    </div>
-                </form>
+                </div>
+                <div class="modal-footer d-flex gap-2">
+                    <button type="button" class="btn btn-success" id="btnSaveStudent">Save</button>
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Scripts -->
-    <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.4/dist/jquery.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.12.3/dist/sweetalert2.all.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/parsleyjs@2.9.2/dist/parsley.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/ag-grid-community@26.2.0/dist/ag-grid-community.min.js"></script>
+    <!-- Photo Modal -->
+    <div class="modal fade" id="photoModal" tabindex="-1" aria-labelledby="photoModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-md modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Student Photo - <span id="photoStudentLabel">-</span></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="photoMsg" class="d-none"></div>
+                    <div class="d-flex align-items-start gap-3">
+                        <img id="photoPreview" src="" class="img-thumbnail" style="max-width:160px; display:none;" alt="photo" />
+                        <div class="flex-grow-1">
+                            <div class="mb-2">
+                                <input type="file" id="photoFile" accept="image/jpeg,image/png,image/webp" class="form-control" />
+                            </div>
+                            <button type="button" class="btn btn-primary" id="btnUploadPhoto">Upload Photo</button>
+                            <div class="form-text">Max 20 MB. jpeg/png/webp</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button></div>
+            </div>
+        </div>
+    </div>
 
-    <!-- Page script -->
-    <script src="~/js/script/student.js"></script>
-</body>
-</html> *@
+    <!-- Documents Modal -->
+    <div class="modal fade" id="docsModal" tabindex="-1" aria-labelledby="docsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Documents - <span id="docsStudentLabel">-</span></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="docsMsg" class="d-none"></div>
+
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-4">
+                            <input type="file" id="docFile" class="form-control" />
+                        </div>
+                        <div class="col-md-6">
+                            <input type="text" id="docDesc" class="form-control" placeholder="Description (optional)" />
+                        </div>
+                        <div class="col-md-2 d-grid">
+                            <button type="button" class="btn btn-primary" id="btnUploadDoc">Upload</button>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped align-middle" id="docsTable">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width:80px;">Doc ID</th>
+                                    <th>File</th>
+                                    <th>Description</th>
+                                    <th style="width:180px;">Uploaded On</th>
+                                    <th style="width:100px;">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody><tr><td colspan="5" class="p-3 text-center text-muted">No documents</td></tr></tbody>
+                        </table>
+                    </div>
+                    <div class="form-text">Max 50 MB. pdf/docx/doc/png/jpg/jpeg</div>
+                </div>
+                <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enrollment Modal -->
+    <div class="modal fade" id="enrollModal" tabindex="-1" aria-labelledby="enrollModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Enrollment - <span id="enrollStudentLabel">-</span></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="enrollMsg" class="d-none"></div>
+                    <input type="hidden" id="enrollmentId" value="0" />
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <label class="form-label">Academic Year</label>
+                            <input type="text" class="form-control" id="enrollAcademicYear" placeholder="2025-26" />
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Class</label>
+                            <input type="text" class="form-control" id="enrollClassName" />
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Section</label>
+                            <input type="text" class="form-control" id="enrollSection" />
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Active</label>
+                            <select class="form-select" id="enrollIsActive">
+                                <option value="true">Yes</option>
+                                <option value="false">No</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Enrollment Date</label>
+                            <input type="date" class="form-control" id="enrollDate" />
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer d-flex gap-2">
+                    <button type="button" class="btn btn-success" id="btnSaveEnrollment">Save</button>
+                    <button type="button" class="btn btn-outline-secondary" id="btnReloadEnrollment">Reload</button>
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- VIEW Modal (Consolidated) -->
+    <div class="modal fade" id="viewModal" tabindex="-1" aria-labelledby="viewModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header justify-content-between">
+                    <h5 class="modal-title">
+                        View Student - <span id="vTitle">-</span>
+                    </h5>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="btnViewOpenEdit">Edit</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="btnViewOpenPhoto">Photo</button>
+                        <button type="button" class="btn btn-sm btn-outline-info" id="btnViewOpenDocs">Docs</button>
+                        <button type="button" class="btn btn-sm btn-outline-success" id="btnViewOpenEnroll">Enroll</button>
+                        <button type="button" class="btn btn-sm btn-outline-dark" id="btnViewRefresh">Refresh</button>
+                        <button type="button" class="btn-close ms-2" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                </div>
+                <div class="modal-body">
+                    <ul class="nav nav-tabs mb-3" id="viewTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="tab-about" data-bs-toggle="tab" data-bs-target="#pane-about" type="button" role="tab">About</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="tab-photo" data-bs-toggle="tab" data-bs-target="#pane-photo" type="button" role="tab">Photo</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="tab-docs" data-bs-toggle="tab" data-bs-target="#pane-docs" type="button" role="tab">Documents</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="tab-enroll" data-bs-toggle="tab" data-bs-target="#pane-enroll" type="button" role="tab">Enrollment</button>
+                        </li>
+                    </ul>
+
+                    <div class="tab-content">
+                        <!-- About -->
+                        <div class="tab-pane fade show active" id="pane-about" role="tabpanel" aria-labelledby="tab-about">
+                            <div id="vAboutMsg" class="d-none"></div>
+                            <div class="row g-3">
+                                <div class="col-md-3">
+                                    <img id="vPhoto" src="" class="img-thumbnail w-100" style="display:none;" alt="Photo" />
+                                    <div id="vNoPhoto" class="text-muted small" style="display:none;">No photo available.</div>
+                                </div>
+                                <div class="col-md-9">
+                                    <div class="row g-2">
+                                        <div class="col-sm-6"><strong>ID:</strong> <span id="vStudentId">-</span></div>
+                                        <div class="col-sm-6"><strong>Name:</strong> <span id="vFullName">-</span></div>
+                                        <div class="col-sm-4"><strong>Class:</strong> <span id="vClass">-</span></div>
+                                        <div class="col-sm-4"><strong>Section:</strong> <span id="vSection">-</span></div>
+                                        <div class="col-sm-4"><strong>Gender:</strong> <span id="vGender">-</span></div>
+                                        <div class="col-sm-6"><strong>DOB:</strong> <span id="vDob">-</span></div>
+                                        <div class="col-sm-6"><strong>Guardian:</strong> <span id="vGuardian">-</span></div>
+                                        <div class="col-sm-6"><strong>Email:</strong> <span id="vEmail">-</span></div>
+                                        <div class="col-sm-6"><strong>Phone:</strong> <span id="vPhone">-</span></div>
+                                        <div class="col-12"><strong>Address:</strong> <span id="vAddress">-</span></div>
+                                        <div class="col-12"><strong>Health Info:</strong> <span id="vHealth">-</span></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Photo -->
+                        <div class="tab-pane fade" id="pane-photo" role="tabpanel" aria-labelledby="tab-photo">
+                            <div id="vPhotoMsg" class="d-none"></div>
+                            <div class="d-flex align-items-start gap-3">
+                                <img id="vPhotoLarge" src="" class="img-thumbnail" style="max-width:260px; display:none;" alt="Photo" />
+                                <div id="vNoPhoto2" class="text-muted">No photo available.</div>
+                            </div>
+                        </div>
+
+                        <!-- Documents -->
+                        <div class="tab-pane fade" id="pane-docs" role="tabpanel" aria-labelledby="tab-docs">
+                            <div id="vDocsMsg" class="d-none"></div>
+                            <div class="table-responsive">
+                                <table class="table table-sm table-striped align-middle" id="viewDocsTable">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th style="width:100px;">Doc ID</th>
+                                            <th>File</th>
+                                            <th>Description</th>
+                                            <th style="width:200px;">Uploaded On</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody><tr><td colspan="4" class="p-3 text-center text-muted">No documents</td></tr></tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Enrollment -->
+                        <div class="tab-pane fade" id="pane-enroll" role="tabpanel" aria-labelledby="tab-enroll">
+                            <div id="vEnrollMsg" class="d-none"></div>
+                            <div class="row g-3">
+                                <div class="col-sm-4"><strong>Academic Year:</strong> <span id="vEnrollYear">-</span></div>
+                                <div class="col-sm-4"><strong>Class:</strong> <span id="vEnrollClass">-</span></div>
+                                <div class="col-sm-4"><strong>Section:</strong> <span id="vEnrollSection">-</span></div>
+                                <div class="col-sm-4"><strong>Active:</strong> <span id="vEnrollActive">-</span></div>
+                                <div class="col-sm-4"><strong>Enrollment Date:</strong> <span id="vEnrollDate">-</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button></div>
+            </div>
+        </div>
+    </div>
+}
+
+@section Scripts {
+    <script src="/js/script/student.js?v=3"></script>
+}

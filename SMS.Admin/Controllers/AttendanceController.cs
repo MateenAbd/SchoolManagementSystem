@@ -375,5 +375,235 @@ namespace SMS.Admin.Controllers
                 return Json(Array.Empty<StaffAttendanceDto>());
             }
         }
+
+        [Authorize(Roles = "Admin")]
+        [HttpPost]
+        public async Task<IActionResult> AutoMarkApprovedLeaves([FromBody] AutoMarkApprovedLeavesCommand command, CancellationToken token)
+        {
+            try
+            {
+                var affected = await _mediator.Send(command, token);
+                return Ok(new { success = true, affected });
+            }
+            catch (ValidationException ex)
+            {
+                _logger.Error(ex, "AutoMarkApprovedLeaves validation failed");
+                return BadRequest(new { success = false, errors = ex.Errors.Select(e => e.ErrorMessage) });
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "AutoMarkApprovedLeaves failed");
+                return StatusCode(500, new { success = false, error = "Auto-mark failed" });
+            }
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetDailyStudentAttendanceSummary(DateTime attendanceDate, string? className, string? section, CancellationToken token)
+        {
+            try
+            {
+                var list = await _mediator.Send(new GetDailyStudentAttendanceSummaryQuery
+                {
+                    AttendanceDate = attendanceDate,
+                    ClassName = className,
+                    Section = section
+                }, token);
+                return Json(list);
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "GetDailyStudentAttendanceSummary failed");
+                return Json(Array.Empty<StudentAttendanceSummaryDto>());
+            }
+        }
+
+
+        [HttpGet]
+        public async Task<IActionResult> GetDailyStaffAttendanceSummary(DateTime attendanceDate, CancellationToken token)
+        {
+            try
+            {
+                var dto = await _mediator.Send(new GetDailyStaffAttendanceSummaryQuery { AttendanceDate = attendanceDate }, token);
+                if (dto == null) return Json(new StaffAttendanceSummaryDto
+                {
+                    AttendanceDate = attendanceDate,
+                    PresentCount = 0,
+                    AbsentCount = 0,
+                    LateCount = 0,
+                    ExcusedCount = 0,
+                    Total = 0
+                });
+                return Json(dto);
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "GetDailyStaffAttendanceSummary failed");
+                return StatusCode(500);
+            }
+        }
+
+        // Biometric devices
+        [Authorize(Roles = "Admin")]
+        [HttpPost]
+        public async Task<IActionResult> RegisterBiometricDevice([FromBody] BiometricDeviceDto dto, CancellationToken token)
+        {
+            try
+            {
+                var id = await _mediator.Send(new RegisterBiometricDeviceCommand { Device = dto }, token);
+                return Ok(new { success = true, deviceId = id });
+            }
+            catch (ValidationException ex)
+            {
+                _logger.Error(ex, "RegisterBiometricDevice validation failed");
+                return BadRequest(new { success = false, errors = ex.Errors.Select(e => e.ErrorMessage) });
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "RegisterBiometricDevice failed");
+                return StatusCode(500, new { success = false, error = "Register failed" });
+            }
+        }
+
+        [Authorize(Roles = "Admin")]
+        [HttpPost]
+        public async Task<IActionResult> UpsertBiometricUserMap([FromBody] BiometricUserMapDto dto, CancellationToken token)
+        {
+            try
+            {
+                var id = await _mediator.Send(new UpsertBiometricUserMapCommand { Map = dto }, token);
+                return Ok(new { success = true, mapId = id });
+            }
+            catch (ValidationException ex)
+            {
+                _logger.Error(ex, "UpsertBiometricUserMap validation failed");
+                return BadRequest(new { success = false, errors = ex.Errors.Select(e => e.ErrorMessage) });
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "UpsertBiometricUserMap failed");
+                return StatusCode(500, new { success = false, error = "Mapping failed" });
+            }
+        }
+
+        [Authorize(Roles = "Admin")]
+        [HttpPost]
+        public async Task<IActionResult> ImportBiometricPunches([FromBody] ImportBiometricPunchesCommand command, CancellationToken token)
+        {
+            try
+            {
+                var count = await _mediator.Send(command, token);
+                return Ok(new { success = true, imported = count });
+            }
+            catch (ValidationException ex)
+            {
+                _logger.Error(ex, "ImportBiometricPunches validation failed");
+                return BadRequest(new { success = false, errors = ex.Errors.Select(e => e.ErrorMessage) });
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "ImportBiometricPunches failed");
+                return StatusCode(500, new { success = false, error = "Import failed" });
+            }
+        }
+
+        [Authorize(Roles = "Admin")]
+        [HttpPost]
+        public async Task<IActionResult> ProcessBiometricPunches([FromBody] ProcessBiometricPunchesCommand command, CancellationToken token)
+        {
+            try
+            {
+                var affected = await _mediator.Send(command, token);
+                return Ok(new { success = true, affected });
+            }
+            catch (ValidationException ex)
+            {
+                _logger.Error(ex, "ProcessBiometricPunches validation failed");
+                return BadRequest(new { success = false, errors = ex.Errors.Select(e => e.ErrorMessage) });
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "ProcessBiometricPunches failed");
+                return StatusCode(500, new { success = false, error = "Process failed" });
+            }
+        }
+
+        [Authorize(Roles = "Admin,Teacher")]
+        [HttpGet]
+        public async Task<IActionResult> GetBiometricDevices(bool? isActive, CancellationToken token)
+        {
+            try
+            {
+                var list = await _mediator.Send(new GetBiometricDevicesQuery { IsActive = isActive }, token);
+                return Json(list);
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "GetBiometricDevices failed");
+                return Json(Array.Empty<BiometricDeviceDto>());
+            }
+        }
+
+        [Authorize(Roles = "Admin,Teacher")]
+        [HttpGet]
+        public async Task<IActionResult> GetBiometricUserMaps(int? deviceId, string? personType, CancellationToken token)
+        {
+            try
+            {
+                var list = await _mediator.Send(new GetBiometricUserMapsQuery { DeviceId = deviceId, PersonType = personType }, token);
+                return Json(list);
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "GetBiometricUserMaps failed");
+                return Json(Array.Empty<BiometricUserMapDto>());
+            }
+        }
+
+        [Authorize(Roles = "Admin")]
+        [HttpPost]
+        public async Task<IActionResult> SendAbsenceAlerts([FromBody] SendAbsenceAlertsCommand command, CancellationToken token)
+        {
+            try
+            {
+                var sent = await _mediator.Send(command, token);
+                return Ok(new { success = true, sent });
+            }
+            catch (ValidationException ex)
+            {
+                _logger.Error(ex, "SendAbsenceAlerts validation failed");
+                return BadRequest(new { success = false, errors = ex.Errors.Select(e => e.ErrorMessage) });
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "SendAbsenceAlerts failed");
+                return StatusCode(500, new { success = false, error = "Send failed" });
+            }
+        }
+
+        [Authorize(Roles = "Admin,Teacher")]
+        [HttpGet]
+        public async Task<IActionResult> GetNotificationLogs(DateTime? fromDate, DateTime? toDate, string? type, string? status, string? className, string? section, int? studentId, CancellationToken token)
+        {
+            try
+            {
+                var list = await _mediator.Send(new GetNotificationLogsQuery
+                {
+                    FromDate = fromDate,
+                    ToDate = toDate,
+                    Type = type,
+                    Status = status,
+                    ClassName = className,
+                    Section = section,
+                    StudentId = studentId
+                }, token);
+                return Json(list);
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "GetNotificationLogs failed");
+                return Json(Array.Empty<NotificationLogDto>());
+            }
+        }
+
     }
 }

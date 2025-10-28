@@ -1,54 +1,1017 @@
 ﻿@{
     ViewData["Title"] = "Attendance";
+    var isAdmin = User?.IsInRole("Admin") == true;
+    var isTeacher = User?.IsInRole("Teacher") == true;
+    var isStudent = User?.IsInRole("Student") == true;
+    var defaultTab = (isAdmin || isTeacher) ? "student" : "leaves";
 }
-<h2>Attendance</h2>
-<p>JSON endpoints:</p>
-<ul>
-  <li>POST /Attendance/MarkStudentAttendance
-        {
-        "studentId": 1,
-        "attendanceDate": "2025-04-01",
-        "className": "Grade 8",
-        "section": "A",
-        "status": "Present",
-        "markedByUserId": 1
-        }
-  </li>
-  <li>POST /Attendance/BulkMarkClassAttendance 
+<div id="attendancePage" class="row">
+    <div class="col-12 d-flex justify-content-between align-items-center mb-3">
+        <h2 class="mb-0">Attendance</h2>
+        <div id="attGlobalMsg" class="d-none"></div>
+    </div>
+
+    @if (!(isAdmin || isTeacher || isStudent))
     {
-    "attendanceDate": "2025-04-01",
-    "className": "Grade 8",
-    "section": "A",
-    "markedByUserId": 1,
-    "items": [
-    { "studentId": 1, "status": "Present" },
-    { "studentId": 2, "status": "Absent", "remarks": "Sick" }
-    ]
+        <div class="col-12">
+            <div class="alert alert-warning">You do not have permission to access the Attendance module.</div>
+        </div>
     }
-  </li>
-  <li>POST /Attendance/UpdateStudentAttendanceStatus
+    else
+    {
+        <div class="col-12">
+            <ul class="nav nav-tabs" id="attTabs" role="tablist">
+                @if (isAdmin || isTeacher)
+                {
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link @(defaultTab == "student" ? "active" : "")" id="tab-student" data-bs-toggle="tab" data-bs-target="#pane-student" type="button" role="tab">Student Attendance</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="tab-class" data-bs-toggle="tab" data-bs-target="#pane-class" type="button" role="tab">Manage Class Attendance</button>
+                    </li>
+                }
+                @if (isAdmin || isTeacher || isStudent)
+                {
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link @(defaultTab == "leaves" ? "active" : "")" id="tab-leaves" data-bs-toggle="tab" data-bs-target="#pane-leaves" type="button" role="tab">Student Leaves</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="tab-summary" data-bs-toggle="tab" data-bs-target="#pane-summary" type="button" role="tab">Daily Summary</button>
+                    </li>
+                }
+                @if (isAdmin || isTeacher)
+                {
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="tab-staff" data-bs-toggle="tab" data-bs-target="#pane-staff" type="button" role="tab">Staff Attendance</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="tab-bio" data-bs-toggle="tab" data-bs-target="#pane-bio" type="button" role="tab">Biometric</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="tab-alerts" data-bs-toggle="tab" data-bs-target="#pane-alerts" type="button" role="tab">Alerts & Logs</button>
+                    </li>
+                }
+            </ul>
 
-  </li>
-  <li>POST /Attendance/DeleteStudentAttendance</li>
-  <li>GET /Attendance/GetClassAttendanceByDate?attendanceDate=2025-04-01&className=Grade%208&section=A</li>
-  <li>GET /Attendance/GetStudentAttendanceRange?studentId=1&fromDate=2025-04-01&toDate=2025-04-30</li>
-</ul>
+            <div class="tab-content mt-3">
+                @* ---------------- Student Attendance (Single + Bulk) ---------------- *@
+                @if (isAdmin || isTeacher)
+                {
+                    <div class="tab-pane fade @(defaultTab == "student" ? "show active" : "")" id="pane-student" role="tabpanel" aria-labelledby="tab-student">
+                        <div class="row g-3">
+                            <div class="col-12 col-xl-4">
+                                <div class="card shadow-sm">
+                                    <div class="card-header">Quick Mark (Single Student)</div>
+                                    <div class="card-body">
+                                        <div id="singleMsg" class="d-none"></div>
+                                        <div class="row g-2">
+                                            <div class="col-md-6">
+                                                <label class="form-label">Date</label>
+                                                <input type="date" id="singleDate" class="form-control" />
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label">Student ID</label>
+                                                <input type="number" id="singleStudentId" class="form-control" />
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label">Class</label>
+                                                <input type="text" id="singleClass" class="form-control" />
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label">Section</label>
+                                                <input type="text" id="singleSection" class="form-control" />
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label">Status</label>
+                                                <select id="singleStatus" class="form-select">
+                                                    <option>Present</option>
+                                                    <option>Absent</option>
+                                                    <option>Late</option>
+                                                    <option>Excused</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label">Subject Code (opt)</label>
+                                                <input type="text" id="singleSubject" class="form-control" />
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label">Period No (opt)</label>
+                                                <input type="number" id="singlePeriod" class="form-control" />
+                                            </div>
+                                            <div class="col-12">
+                                                <label class="form-label">Remarks (opt)</label>
+                                                <input type="text" id="singleRemarks" class="form-control" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="card-footer d-flex gap-2">
+                                        <button class="btn btn-success" id="btnMarkSingle">Mark Attendance</button>
+                                        <button class="btn btn-outline-secondary" id="btnClearSingle">Clear</button>
+                                    </div>
+                                </div>
+                            </div>
 
-    <h3>Student Leave</h3>
-<ul>
-  <li>POST /Attendance/ApplyStudentLeave { "studentId": 1, "leaveType": "Sick", "fromDate": "2025-04-02", "toDate": "2025-04-04", "reason": "Fever", "appliedByUserId": 1 }</li>
-  <li>POST /Attendance/ApproveStudentLeave { "leaveId": 1, "approvedByUserId": 1 }</li>
-  <li>POST /Attendance/RejectStudentLeave { "leaveId": 2, "approvedByUserId": 1, "rejectionReason": "Insufficient info" }</li>
-  <li>POST /Attendance/CancelStudentLeave { "leaveId": 3 }</li>
-  <li>GET /Attendance/GetStudentLeavesRange?studentId=1&fromDate=2025-04-01&toDate=2025-04-30</li>
-  <li>GET /Attendance/GetPendingStudentLeaves?fromDate=2025-04-01&toDate=2025-04-30&className=Grade%208&section=A&status=Pending</li>
-</ul>
+                            <div class="col-12 col-xl-8">
+                                <div class="card shadow-sm">
+                                    <div class="card-header d-flex justify-content-between align-items-center">
+                                        <span>Bulk Mark (Class Roster)</span>
+                                        <div class="small text-muted">Set all Present/Absent, then save.</div>
+                                    </div>
+                                    <div class="card-body">
+                                        <div id="bulkMsg" class="d-none"></div>
+                                        <div class="row g-2 align-items-end">
+                                            <div class="col-md-3">
+                                                <label class="form-label">Date</label>
+                                                <input type="date" id="bulkDate" class="form-control" />
+                                            </div>
+                                            <div class="col-md-2">
+                                                <label class="form-label">Class</label>
+                                                <input type="text" id="bulkClass" class="form-control" />
+                                            </div>
+                                            <div class="col-md-2">
+                                                <label class="form-label">Section</label>
+                                                <input type="text" id="bulkSection" class="form-control" />
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label">Subject Code (opt)</label>
+                                                <input type="text" id="bulkSubject" class="form-control" />
+                                            </div>
+                                            <div class="col-md-2">
+                                                <label class="form-label">Period (opt)</label>
+                                                <input type="number" id="bulkPeriod" class="form-control" />
+                                            </div>
+                                            <div class="col-12 d-flex gap-2">
+                                                <button class="btn btn-outline-primary" id="btnLoadRoster">Load Roster</button>
+                                                <button class="btn btn-outline-secondary" id="btnLoadFromAttendance">Load From Today’s Attendance</button>
+                                                <button class="btn btn-outline-dark" id="btnAddManualRow">Add Student ID</button>
+                                                <div class="ms-auto d-flex gap-2">
+                                                    <button class="btn btn-sm btn-outline-success" id="btnAllPresent">All Present</button>
+                                                    <button class="btn btn-sm btn-outline-danger" id="btnAllAbsent">All Absent</button>
+                                                    <button class="btn btn-sm btn-outline-secondary" id="btnClearRoster">Clear</button>
+                                                </div>
+                                            </div>
+                                        </div>
 
-  <h3>Staff Attendance</h3>
-<ul>
-  <li>POST /Attendance/MarkStaffAttendance { "userId": 10, "attendanceDate": "2025-04-01", "status":"Present", "inTime":"2025-04-01T08:55:00Z", "markedByUserId": 1, "source":"Manual" }</li>
-  <li>POST /Attendance/UpdateStaffAttendanceStatus { "attendanceId": 1, "status":"Late", "remarks":"Traffic", "inTime":"2025-04-01T09:10:00Z" }</li>
-  <li>POST /Attendance/DeleteStaffAttendance { "attendanceId": 1 }</li>
-  <li>GET /Attendance/GetStaffAttendanceRange?userId=10&fromDate=2025-04-01&toDate=2025-04-30</li>
-  <li>GET /Attendance/GetStaffDailyAttendance?attendanceDate=2025-04-01&status=Absent (status is optional)</li>
-</ul>
+                                        <div class="table-responsive mt-3">
+                                            <table class="table table-sm table-striped align-middle" id="bulkTable">
+                                                <thead class="table-light">
+                                                    <tr>
+                                                        <th style="width:90px;">Student ID</th>
+                                                        <th>Name</th>
+                                                        <th style="width:380px;">Status</th>
+                                                        <th style="width:120px;">Action</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <tr><td colspan="4" class="p-3 text-center text-muted">No roster loaded.</td></tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                    <div class="card-footer d-flex gap-2">
+                                        <button class="btn btn-success" id="btnSaveBulk">Save Bulk Attendance</button>
+                                        <span class="small text-muted" id="bulkCount"></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+
+                @* ---------------- Manage Class Attendance ---------------- *@
+                @if (isAdmin || isTeacher)
+                {
+                    <div class="tab-pane fade" id="pane-class" role="tabpanel" aria-labelledby="tab-class">
+                        <div class="card shadow-sm">
+                            <div class="card-body">
+                                <div id="classMsg" class="d-none"></div>
+                                <div class="row g-2 align-items-end">
+                                    <div class="col-md-3">
+                                        <label class="form-label">Date</label>
+                                        <input type="date" id="classDate" class="form-control" />
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label">Class</label>
+                                        <input type="text" id="classClass" class="form-control" />
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label">Section</label>
+                                        <input type="text" id="classSection" class="form-control" />
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label">Subject (opt)</label>
+                                        <input type="text" id="classSubject" class="form-control" />
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label">Period (opt)</label>
+                                        <input type="number" id="classPeriod" class="form-control" />
+                                    </div>
+                                    <div class="col-12">
+                                        <button class="btn btn-outline-primary" id="btnLoadClassAtt">Load Attendance</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="table-responsive">
+                                    <table class="table table-striped align-middle mb-0" id="classTable">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th style="width:90px;">Student ID</th>
+                                                <th>Student</th>
+                                                <th style="width:120px;">Status</th>
+                                                <th>Remarks</th>
+                                                <th style="width:120px;">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody><tr><td colspan="5" class="p-4 text-center text-muted">No data.</td></tr></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <div class="card-footer">
+                                <small class="text-muted">Tip: Update status inline or delete entries.</small>
+                            </div>
+                        </div>
+                    </div>
+                }
+
+                @* ---------------- Student Leaves ---------------- *@
+                @if (isAdmin || isTeacher || isStudent)
+                {
+                    <div class="tab-pane fade @(defaultTab == "leaves" ? "show active" : "")" id="pane-leaves" role="tabpanel" aria-labelledby="tab-leaves">
+                        <div class="row g-3">
+                            <div class="col-12 col-xl-4">
+                                <div class="card shadow-sm">
+                                    <div class="card-header">Apply Leave</div>
+                                    <div class="card-body">
+                                        <div id="leaveApplyMsg" class="d-none"></div>
+                                        <div class="row g-2">
+                                            <div class="col-md-6">
+                                                <label class="form-label">Student ID</label>
+                                                <input type="number" id="lvStudentId" class="form-control" />
+                                                <div class="form-text">Enter your Student ID</div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label">Leave Type</label>
+                                                <select id="lvType" class="form-select">
+                                                    <option>Sick</option>
+                                                    <option>Casual</option>
+                                                    <option>Emergency</option>
+                                                    <option>Other</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label">From</label>
+                                                <input type="date" id="lvFrom" class="form-control" />
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label">To</label>
+                                                <input type="date" id="lvTo" class="form-control" />
+                                            </div>
+                                            <div class="col-12">
+                                                <label class="form-label">Reason (optional)</label>
+                                                <input type="text" id="lvReason" class="form-control" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="card-footer d-flex gap-2">
+                                        <button class="btn btn-success" id="btnApplyLeave">Apply</button>
+                                        <button class="btn btn-outline-secondary" id="btnClearLeaveForm">Clear</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-12 col-xl-8">
+                                <div class="card shadow-sm">
+                                    <div class="card-header d-flex justify-content-between">
+                                        <span>Pending/Recent Leave Requests</span>
+                                        <small class="text-muted">Approve / Reject / Cancel</small>
+                                    </div>
+                                    <div class="card-body">
+                                        <div id="leaveListMsg" class="d-none"></div>
+                                        <div class="row g-2 align-items-end">
+                                            <div class="col-md-3">
+                                                <label class="form-label">From</label>
+                                                <input type="date" id="lvFilterFrom" class="form-control" />
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label">To</label>
+                                                <input type="date" id="lvFilterTo" class="form-control" />
+                                            </div>
+                                            <div class="col-md-2">
+                                                <label class="form-label">Class</label>
+                                                <input type="text" id="lvFilterClass" class="form-control" />
+                                            </div>
+                                            <div class="col-md-2">
+                                                <label class="form-label">Section</label>
+                                                <input type="text" id="lvFilterSection" class="form-control" />
+                                            </div>
+                                            <div class="col-md-2">
+                                                <label class="form-label">Status</label>
+                                                <select id="lvFilterStatus" class="form-select">
+                                                    <option value="">Any</option>
+                                                    <option>Pending</option>
+                                                    <option>Approved</option>
+                                                    <option>Rejected</option>
+                                                    <option>Cancelled</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-12">
+                                                <button class="btn btn-outline-primary" id="btnLoadPendingLeaves">Load</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="card-body p-0">
+                                        <div class="table-responsive">
+                                            <table class="table table-striped align-middle mb-0" id="lvTable">
+                                                <thead class="table-light">
+                                                    <tr>
+                                                        <th style="width:90px;">Leave ID</th>
+                                                        <th>Student</th>
+                                                        <th>Type</th>
+                                                        <th>Dates</th>
+                                                        <th>Status</th>
+                                                        <th>Reason</th>
+                                                        <th style="width:220px;">Action</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody><tr><td colspan="7" class="p-4 text-center text-muted">No data</td></tr></tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-12">
+                                <div class="card shadow-sm">
+                                    <div class="card-header">Leave History</div>
+                                    <div class="card-body">
+                                        <div id="myLeavesMsg" class="d-none"></div>
+                                        <div class="row g-2 align-items-end">
+                                            <div class="col-md-3">
+                                                <label class="form-label">Student ID</label>
+                                                <input type="number" id="myLvStudentId" class="form-control" />
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label">From</label>
+                                                <input type="date" id="myLvFrom" class="form-control" />
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label">To</label>
+                                                <input type="date" id="myLvTo" class="form-control" />
+                                            </div>
+                                            <div class="col-md-3">
+                                                <button class="btn btn-outline-primary w-100" id="btnLoadMyLeaves">Load Leaves</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="card-body p-0">
+                                        <div class="table-responsive">
+                                            <table class="table table-sm table-striped align-middle mb-0" id="myLvTable">
+                                                <thead class="table-light">
+                                                    <tr>
+                                                        <th style="width:90px;">Leave ID</th>
+                                                        <th>Dates</th>
+                                                        <th>Type</th>
+                                                        <th>Status</th>
+                                                        <th>Reason</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody><tr><td colspan="5" class="p-3 text-center text-muted">No data</td></tr></tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                }
+
+                @* ---------------- Daily Summary ---------------- *@
+                @if (isAdmin || isTeacher || isStudent)
+                {
+                    <div class="tab-pane fade" id="pane-summary" role="tabpanel" aria-labelledby="tab-summary">
+                        <div class="row g-3">
+                            <div class="col-12 col-xl-7">
+                                <div class="card shadow-sm">
+                                    <div class="card-header">Student Daily Summary</div>
+                                    <div class="card-body">
+                                        <div id="stdSumMsg" class="d-none"></div>
+                                        <div class="row g-2 align-items-end">
+                                            <div class="col-md-4">
+                                                <label class="form-label">Date</label>
+                                                <input type="date" id="sumDate" class="form-control" />
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label">Class (opt)</label>
+                                                <input type="text" id="sumClass" class="form-control" />
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label">Section (opt)</label>
+                                                <input type="text" id="sumSection" class="form-control" />
+                                            </div>
+                                            <div class="col-md-2">
+                                                <button class="btn btn-outline-primary w-100" id="btnLoadStdSummary">Load</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="card-body p-0">
+                                        <div class="table-responsive">
+                                            <table class="table table-sm table-striped align-middle mb-0" id="stdSummaryTable">
+                                                <thead class="table-light">
+                                                    <tr>
+                                                        <th>Class</th>
+                                                        <th>Present</th>
+                                                        <th>Absent</th>
+                                                        <th>Total</th>
+                                                        <th>% Present</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody><tr><td colspan="5" class="p-3 text-center text-muted">No data</td></tr></tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-12 col-xl-5">
+                                <div class="card shadow-sm">
+                                    <div class="card-header">Staff Daily Summary</div>
+                                    <div class="card-body">
+                                        <div id="staffSumMsg" class="d-none"></div>
+                                        <div class="row g-2 align-items-end">
+                                            <div class="col-md-8">
+                                                <label class="form-label">Date</label>
+                                                <input type="date" id="staffSumDate" class="form-control" />
+                                            </div>
+                                            <div class="col-md-4">
+                                                <button class="btn btn-outline-primary w-100" id="btnLoadStaffSummary">Load</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="card-body">
+                                        <ul class="list-group" id="staffSummaryList">
+                                            <li class="list-group-item d-flex justify-content-between"><span>Present</span><span id="ssPresent">-</span></li>
+                                            <li class="list-group-item d-flex justify-content-between"><span>Absent</span><span id="ssAbsent">-</span></li>
+                                            <li class="list-group-item d-flex justify-content-between"><span>Late</span><span id="ssLate">-</span></li>
+                                            <li class="list-group-item d-flex justify-content-between"><span>Excused</span><span id="ssExcused">-</span></li>
+                                            <li class="list-group-item d-flex justify-content-between"><strong>Total</strong><strong id="ssTotal">-</strong></li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                }
+
+                @* ---------------- Staff Attendance ---------------- *@
+                @if (isAdmin || isTeacher)
+                {
+                    <div class="tab-pane fade" id="pane-staff" role="tabpanel" aria-labelledby="tab-staff">
+                        <div class="row g-3">
+                            <div class="col-12 col-xl-4">
+                                <div class="card shadow-sm">
+                                    <div class="card-header d-flex justify-content-between">
+                                        <span>Mark Staff Attendance</span>
+                                        <small class="text-muted">Admin only</small>
+                                    </div>
+                                    <div class="card-body">
+                                        <div id="staffMarkMsg" class="d-none"></div>
+                                        <div class="row g-2">
+                                            <div class="col-md-6">
+                                                <label class="form-label">User ID</label>
+                                                <input type="number" id="stUserId" class="form-control" />
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label">Date</label>
+                                                <input type="date" id="stDate" class="form-control" />
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label">Status</label>
+                                                <select id="stStatus" class="form-select">
+                                                    <option>Present</option>
+                                                    <option>Absent</option>
+                                                    <option>Late</option>
+                                                    <option>Excused</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label">Source</label>
+                                                <select id="stSource" class="form-select">
+                                                    <option>Manual</option>
+                                                    <option>Biometric</option>
+                                                    <option>RFID</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label">In Time (opt)</label>
+                                                <input type="datetime-local" id="stInTime" class="form-control" />
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label">Out Time (opt)</label>
+                                                <input type="datetime-local" id="stOutTime" class="form-control" />
+                                            </div>
+                                            <div class="col-12">
+                                                <label class="form-label">Remarks (opt)</label>
+                                                <input type="text" id="stRemarks" class="form-control" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="card-footer d-flex gap-2">
+                                        <button class="btn btn-success" id="btnMarkStaff">Mark</button>
+                                        <button class="btn btn-outline-secondary" id="btnClearStaffMark">Clear</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-12 col-xl-8">
+                                <div class="card shadow-sm">
+                                    <div class="card-header">Staff Attendance (Range)</div>
+                                    <div class="card-body">
+                                        <div id="staffRangeMsg" class="d-none"></div>
+                                        <div class="row g-2 align-items-end">
+                                            <div class="col-md-3">
+                                                <label class="form-label">User ID</label>
+                                                <input type="number" id="stRangeUserId" class="form-control" />
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label">From</label>
+                                                <input type="date" id="stRangeFrom" class="form-control" />
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label">To</label>
+                                                <input type="date" id="stRangeTo" class="form-control" />
+                                            </div>
+                                            <div class="col-md-3">
+                                                <button class="btn btn-outline-primary w-100" id="btnLoadStaffRange">Load</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="card-body p-0">
+                                        <div class="table-responsive">
+                                            <table class="table table-striped align-middle mb-0" id="stRangeTable">
+                                                <thead class="table-light">
+                                                    <tr>
+                                                        <th style="width:100px;">Attendance ID</th>
+                                                        <th>User</th>
+                                                        <th>Date</th>
+                                                        <th>Status</th>
+                                                        <th>In</th>
+                                                        <th>Out</th>
+                                                        <th>Remarks</th>
+                                                        <th style="width:200px;">Actions</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody><tr><td colspan="8" class="p-4 text-center text-muted">No data</td></tr></tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-12">
+                                <div class="card shadow-sm">
+                                    <div class="card-header">Staff Daily Attendance</div>
+                                    <div class="card-body">
+                                        <div id="staffDailyMsg" class="d-none"></div>
+                                        <div class="row g-2 align-items-end">
+                                            <div class="col-md-3">
+                                                <label class="form-label">Date</label>
+                                                <input type="date" id="stDailyDate" class="form-control" />
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label">Status (opt)</label>
+                                                <select id="stDailyStatus" class="form-select">
+                                                    <option value="">Any</option>
+                                                    <option>Present</option>
+                                                    <option>Absent</option>
+                                                    <option>Late</option>
+                                                    <option>Excused</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <button class="btn btn-outline-primary w-100" id="btnLoadStaffDaily">Load</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="card-body p-0">
+                                        <div class="table-responsive">
+                                            <table class="table table-sm table-striped mb-0" id="stDailyTable">
+                                                <thead class="table-light">
+                                                    <tr>
+                                                        <th>User</th>
+                                                        <th>Status</th>
+                                                        <th>In</th>
+                                                        <th>Out</th>
+                                                        <th>Remarks</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody><tr><td colspan="5" class="p-3 text-center text-muted">No data</td></tr></tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                }
+
+                @* ---------------- Biometric ---------------- *@
+                @if (isAdmin || isTeacher)
+                {
+                    <div class="tab-pane fade" id="pane-bio" role="tabpanel" aria-labelledby="tab-bio">
+                        <div class="row g-3">
+                            <div class="col-12 col-xl-4">
+                                <div class="card shadow-sm">
+                                    <div class="card-header d-flex justify-content-between">
+                                        <span>Register Biometric Device</span>
+                                        <small class="text-muted">Admin only</small>
+                                    </div>
+                                    <div class="card-body">
+                                        <div id="bioDeviceMsg" class="d-none"></div>
+                                        <div class="row g-2">
+                                            <div class="col-md-6">
+                                                <label class="form-label">Name</label>
+                                                <input type="text" id="bioDevName" class="form-control" placeholder="ZKT-A1" />
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label">Serial No</label>
+                                                <input type="text" id="bioDevSerial" class="form-control" placeholder="SN12345" />
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label">Vendor (opt)</label>
+                                                <input type="text" id="bioDevVendor" class="form-control" placeholder="ZKTeco" />
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label">Active</label>
+                                                <select id="bioDevActive" class="form-select">
+                                                    <option value="true">Yes</option>
+                                                    <option value="false">No</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="card-footer d-flex gap-2">
+                                        <button class="btn btn-success" id="btnRegisterDevice">Register</button>
+                                        <button class="btn btn-outline-secondary" id="btnClearDeviceForm">Clear</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-12 col-xl-8">
+                                <div class="card shadow-sm mb-3">
+                                    <div class="card-header">Devices</div>
+                                    <div class="card-body">
+                                        <div id="bioDevicesMsg" class="d-none"></div>
+                                        <div class="row g-2 align-items-end">
+                                            <div class="col-md-3">
+                                                <label class="form-label">Active</label>
+                                                <select id="bioListActive" class="form-select">
+                                                    <option value="">Any</option>
+                                                    <option value="true">Active</option>
+                                                    <option value="false">Inactive</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <button class="btn btn-outline-primary w-100" id="btnLoadDevices">Load Devices</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="card-body p-0">
+                                        <div class="table-responsive">
+                                            <table class="table table-sm table-striped mb-0" id="bioDevicesTable">
+                                                <thead class="table-light">
+                                                    <tr>
+                                                        <th>Device ID</th>
+                                                        <th>Name</th>
+                                                        <th>Serial</th>
+                                                        <th>Vendor</th>
+                                                        <th>Active</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody><tr><td colspan="5" class="p-3 text-center text-muted">No data</td></tr></tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="card shadow-sm">
+                                    <div class="card-header d-flex justify-content-between">
+                                        <span>User Map</span>
+                                        <small class="text-muted">Admin can upsert; both roles can view</small>
+                                    </div>
+                                    <div class="card-body">
+                                        <div id="bioMapMsg" class="d-none"></div>
+                                        <div class="row g-2 align-items-end">
+                                            <div class="col-md-3">
+                                                <label class="form-label">Device</label>
+                                                <input type="number" id="mapDeviceId" class="form-control" />
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label">Person Type</label>
+                                                <select id="mapPersonType" class="form-select">
+                                                    <option>Staff</option>
+                                                    <option>Student</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <button class="btn btn-outline-primary w-100" id="btnLoadMaps">Load Maps</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="card-body p-0">
+                                        <div class="table-responsive">
+                                            <table class="table table-sm table-striped mb-0" id="bioMapsTable">
+                                                <thead class="table-light">
+                                                    <tr>
+                                                        <th>Map</th>
+                                                        <th>Data (JSON)</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody><tr><td colspan="2" class="p-3 text-center text-muted">No data</td></tr></tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                    <div class="card-footer">
+                                        <div class="row g-2">
+                                            <div class="col-md-3">
+                                                <input type="number" id="mapUpsertDeviceId" class="form-control" placeholder="DeviceId" />
+                                            </div>
+                                            <div class="col-md-3">
+                                                <select id="mapUpsertPersonType" class="form-select">
+                                                    <option>Staff</option>
+                                                    <option>Student</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <input type="text" id="mapUpsertExternalUserId" class="form-control" placeholder="ExternalUserId" />
+                                            </div>
+                                            <div class="col-md-3">
+                                                <input type="number" id="mapUpsertInternalUserId" class="form-control" placeholder="UserId/StudentId" />
+                                            </div>
+                                            <div class="col-12">
+                                                <label class="form-label">Raw JSON (optional, overrides above)</label>
+                                                <textarea id="mapRawJson" class="form-control" rows="3" placeholder='{"deviceId":1,"personType":"Staff","externalUserId":"EMP001","userId":45}'></textarea>
+                                            </div>
+                                            <div class="col-12 d-flex gap-2">
+                                                <button class="btn btn-success" id="btnUpsertMap">Upsert Map</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </div>
+
+                            <div class="col-12">
+                                <div class="card shadow-sm">
+                                    <div class="card-header d-flex justify-content-between">
+                                        <span>Biometric Punches</span>
+                                        <small class="text-muted">Admin only</small>
+                                    </div>
+                                    <div class="card-body">
+                                        <div id="bioPunchMsg" class="d-none"></div>
+                                        <div class="row g-2 align-items-end">
+                                            <div class="col-md-2">
+                                                <button class="btn btn-outline-secondary w-100" id="btnAddPunchRow">Add Row</button>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label">Process From</label>
+                                                <input type="date" id="procFrom" class="form-control" />
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label">Process To</label>
+                                                <input type="date" id="procTo" class="form-control" />
+                                            </div>
+                                            <div class="col-md-2 d-grid">
+                                                <button class="btn btn-outline-primary" id="btnProcessPunches">Process</button>
+                                            </div>
+                                            <div class="col-md-2 d-grid">
+                                                <button class="btn btn-success" id="btnImportPunches">Import</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="card-body p-0">
+                                        <div class="table-responsive">
+                                            <table class="table table-sm table-striped" id="punchTable">
+                                                <thead class="table-light">
+                                                    <tr>
+                                                        <th style="width:120px;">DeviceId</th>
+                                                        <th style="width:160px;">ExternalUserId</th>
+                                                        <th style="width:220px;">Punch Time</th>
+                                                        <th style="width:120px;">Direction</th>
+                                                        <th style="width:100px;">Action</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody><tr><td colspan="5" class="p-3 text-center text-muted">No punches to import</td></tr></tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                }
+
+                @* ---------------- Alerts & Logs ---------------- *@
+                @if (isAdmin || isTeacher)
+                {
+                    <div class="tab-pane fade" id="pane-alerts" role="tabpanel" aria-labelledby="tab-alerts">
+                        <div class="row g-3">
+                            <div class="col-12 col-xl-4">
+                                <div class="card shadow-sm">
+                                    <div class="card-header d-flex justify-content-between">
+                                        <span>Send Absence Alerts</span>
+                                        <small class="text-muted">Admin only</small>
+                                    </div>
+                                    <div class="card-body">
+                                        <div id="alertsMsg" class="d-none"></div>
+                                        <div class="row g-2">
+                                            <div class="col-md-6">
+                                                <label class="form-label">Date</label>
+                                                <input type="date" id="alDate" class="form-control" />
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label">Class (opt)</label>
+                                                <input type="text" id="alClass" class="form-control" />
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label">Section (opt)</label>
+                                                <input type="text" id="alSection" class="form-control" />
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label">Send Via</label>
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" id="alEmail" checked />
+                                                    <label class="form-check-label" for="alEmail">Email(Only this working for now)</label>
+                                                </div>
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" id="alSms" />
+                                                    <label class="form-check-label" for="alSms">SMS(alert will be sent here, but marked as failed in logs)</label>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="card-footer d-flex gap-2">
+                                        <button class="btn btn-success" id="btnSendAlerts">Send Alerts</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-12 col-xl-8">
+                                <div class="card shadow-sm">
+                                    <div class="card-header">Notification Logs</div>
+                                    <div class="card-body">
+                                        <div id="logsMsg" class="d-none"></div>
+                                        <div class="row g-2 align-items-end">
+                                            <div class="col-md-3">
+                                                <label class="form-label">From</label>
+                                                <input type="date" id="logFrom" class="form-control" />
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label">To</label>
+                                                <input type="date" id="logTo" class="form-control" />
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label">Type (opt)</label>
+                                                <input type="text" id="logType" class="form-control" placeholder="Email/SMS" />
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label">Status (opt)</label>
+                                                <input type="text" id="logStatus" class="form-control" placeholder="Sent/Failed/..." />
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label">Class (opt)</label>
+                                                <input type="text" id="logClass" class="form-control" />
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label">Section (opt)</label>
+                                                <input type="text" id="logSection" class="form-control" />
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label">Student Id (opt)</label>
+                                                <input type="number" id="logStudentId" class="form-control" />
+                                            </div>
+                                            <div class="col-md-3">
+                                                <button class="btn btn-outline-primary w-100" id="btnLoadLogs">Load</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="card-body p-0">
+                                        <div class="table-responsive">
+                                            <table class="table table-sm table-striped mb-0" id="logsTable">
+                                                <thead class="table-light">
+                                                    <tr>
+                                                        <th>Date/Time</th>
+                                                        <th>Type</th>
+                                                        <th>Status</th>
+                                                        <th>Class</th>
+                                                        <th>Section</th>
+                                                        <th>Student</th>
+                                                        <th>Message</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody><tr><td colspan="7" class="p-3 text-center text-muted">No logs</td></tr></tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                }
+
+            </div>
+        </div>
+    }
+</div>
+
+@* ------------ Leave Modals ------------ *@
+<div class="modal fade" id="lvApproveModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header"><h6 class="modal-title">Approve Leave</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <input type="hidden" id="lvApproveId" />
+                <p>Approve leave ID <strong id="lvApproveIdText">-</strong>?</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-success" id="btnConfirmApproveLeave">Approve</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="lvRejectModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header"><h6 class="modal-title">Reject Leave</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <input type="hidden" id="lvRejectId" />
+                <label class="form-label">Reason</label>
+                <input type="text" id="lvRejectReason" class="form-control" />
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-danger" id="btnConfirmRejectLeave">Reject</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="lvCancelModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header"><h6 class="modal-title">Cancel Leave</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <input type="hidden" id="lvCancelId" />
+                <p>Cancel leave ID <strong id="lvCancelIdText">-</strong>?</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline-danger" id="btnConfirmCancelLeave">Cancel Leave</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@* ------------ Update Staff Attendance Modal ------------ *@
+<div class="modal fade" id="stUpdateModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header"><h6 class="modal-title">Update Staff Attendance</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <input type="hidden" id="stUpdAttendanceId" />
+                <div class="mb-2">
+                    <label class="form-label">Status</label>
+                    <select id="stUpdStatus" class="form-select">
+                        <option>Present</option>
+                        <option>Absent</option>
+                        <option>Late</option>
+                        <option>Excused</option>
+                    </select>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label">In Time (opt)</label>
+                    <input type="datetime-local" id="stUpdInTime" class="form-control" />
+                </div>
+                <div class="mb-2">
+                    <label class="form-label">Out Time (opt)</label>
+                    <input type="datetime-local" id="stUpdOutTime" class="form-control" />
+                </div>
+                <div class="mb-2">
+                    <label class="form-label">Remarks (opt)</label>
+                    <input type="text" id="stUpdRemarks" class="form-control" />
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-success" id="btnDoUpdateStaff">Update</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="/js/script/attendance.js?v=final"></script>
+}

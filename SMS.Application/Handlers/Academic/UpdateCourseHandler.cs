@@ -1,0 +1,27 @@
+﻿using System.Threading;
+using System.Threading.Tasks;
+using AutoMapper;
+using MediatR;
+using SMS.Application.Commands.Academic;
+using SMS.Application.Interfaces;
+using SMS.Core.Entities;
+
+namespace SMS.Application.Handlers.Academic
+{
+    public class UpdateCourseHandler : IRequestHandler<UpdateCourseCommand, int>
+    {
+        private readonly IUnitOfWork _uow;
+        private readonly IMapper _mapper;
+
+        public UpdateCourseHandler(IUnitOfWork uow, IMapper mapper) { 
+            _uow = uow; 
+            _mapper = mapper;
+        }
+
+        public Task<int> Handle(UpdateCourseCommand request, CancellationToken cancellationToken)
+        {
+            var entity = _mapper.Map<Course>(request.Course);
+            return _uow.AcademicRepository.UpdateCourseAsync(cancellationToken, entity);
+        }
+    }
+}
