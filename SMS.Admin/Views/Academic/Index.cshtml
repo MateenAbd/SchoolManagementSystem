@@ -64,3 +64,98 @@ UpsertTimetableEntry sample:
   "isActive": true
 }
 </pre>
+
+
+<h3>Lesson Plans</h3>
+<ul>
+    <li>POST /Academic/CreateLessonPlan</li>
+    <li>POST /Academic/UpdateLessonPlan</li>
+    <li>POST /Academic/DeleteLessonPlan (body: number planId)</li>
+    <li>POST /Academic/UpdateLessonPlanStatus (body: { planId, status })</li>
+    <li>GET /Academic/GetLessonPlanById?planId=1</li>
+    <li>GET /Academic/GetLessonPlanList?academicYear=2024-2025&className=Grade%208&section=A&teacherUserId=10&fromDate=2025-04-01&toDate=2025-04-30&status=Planned</li>
+</ul>
+<pre>
+CreateLessonPlan sample:
+{
+  "academicYear": "2024-2025",
+  "className": "Grade 8",
+  "section": "A",
+  "courseId": 12,
+  "subjectId": 3,
+  "teacherUserId": 10,
+  "planDate": "2025-04-05",
+  "periodNo": 3,
+  "topic": "Algebra - Linear Equations",
+  "objectives": "Solve single-variable linear equations",
+  "activities": "Board examples, pair work",
+  "resources": "Textbook Ch.5; Projector",
+  "homework": "Worksheet 5.1",
+  "assessmentMethods": "In-class quiz",
+  "status": "Planned",
+  "notes": "Prepare examples"
+}
+</pre>
+
+
+<h3>Academic Calendar</h3>
+<ul>
+    <li>POST /Academic/CreateCalendarEvent</li>
+    <li>POST /Academic/UpdateCalendarEvent</li>
+    <li>POST /Academic/DeleteCalendarEvent (body: number eventId)</li>
+    <li>GET /Academic/GetCalendarEventById?eventId=1</li>
+    <li>GET /Academic/GetCalendarEvents?academicYear=2024-2025&fromDate=2025-04-01&toDate=2025-04-30&className=Grade%208&section=A&eventType=Holiday&isActive=true</li>
+</ul>
+<pre>
+CreateCalendarEvent sample:
+{
+  "academicYear": "2024-2025",
+  "title": "Summer Vacation",
+  "eventType": "Holiday",
+  "startDate": "2025-04-15T00:00:00Z",
+  "endDate": "2025-04-30T00:00:00Z",
+  "isAllDay": true,
+  "className": null,
+  "section": null,
+  "location": null,
+  "description": "School closed for summer break",
+  "isActive": true,
+  "createdByUserId": 1
+}
+</pre>
+
+
+<h3>Exams</h3>
+<ul>
+    <li>POST /Academic/CreateExam</li>
+    <li>POST /Academic/UpdateExam</li>
+    <li>POST /Academic/DeleteExam (body: number examId)</li>
+    <li>GET /Academic/GetExamById?examId=1</li>
+    <li>GET /Academic/GetExamList?academicYear=2024-2025&className=Grade%208&section=A&examType=Term&isPublished=false</li>
+</ul>
+
+<h3>Exam Papers</h3>
+<ul>
+    <li>POST /Academic/UpsertExamPaper</li>
+    <li>POST /Academic/DeleteExamPaper (body: number paperId)</li>
+    <li>GET /Academic/GetExamTimetableByExam?examId=1</li>
+    <li>GET /Academic/GetExamTimetableByClass?academicYear=2024-2025&className=Grade%208&section=A</li>
+    <li>POST /Academic/ValidateExamPaperConflict</li>
+</ul>
+<pre>
+UpsertExamPaper sample:
+{
+  "paperId": 0,
+  "examId": 1,
+  "subjectId": 3,
+  "examDate": "2025-04-20",
+  "startTime": "09:00:00",
+  "endTime": "11:00:00",
+  "durationMinutes": 120,
+  "roomId": 2,
+  "invigilatorUserId": 10,
+  "maxMarks": 100,
+  "passingMarks": 33,
+  "isActive": true
+}
+</pre>

@@ -42,6 +42,10 @@ namespace SMS.Application.Mapper
             CreateMap<CourseSyllabus, CourseSyllabusDto>().ReverseMap();
             CreateMap<Classroom, ClassroomDto>().ReverseMap();
             CreateMap<TimetableEntry, TimetableEntryDto>().ReverseMap();
+            CreateMap<LessonPlan, LessonPlanDto>().ReverseMap();
+            CreateMap<AcademicCalendarEvent, AcademicCalendarEventDto>().ReverseMap();
+            CreateMap<Exam, ExamDto>().ReverseMap();
+            CreateMap<ExamPaper, ExamPaperDto>().ReverseMap();
         }
     }
 }

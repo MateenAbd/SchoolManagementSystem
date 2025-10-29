@@ -475,5 +475,327 @@ namespace SMS.Admin.Controllers
                 return StatusCode(500);
             }
         }
+
+
+        // ---- Lesson Plans ----
+        [Authorize(Roles = "Admin,Teacher")]
+        [HttpPost]
+        public async Task<IActionResult> CreateLessonPlan([FromBody] LessonPlanDto dto, CancellationToken token)
+        {
+            try
+            {
+                var id = await _mediator.Send(new CreateLessonPlanCommand { Plan = dto }, token);
+                return Ok(new { success = true, id });
+            }
+            catch (ValidationException ex) { _logger.Error(ex, "CreateLessonPlan validation failed"); return BadRequest(new { success = false, errors = ex.Errors.Select(e => e.ErrorMessage) }); }
+            catch (Exception ex) { _logger.Error(ex, "CreateLessonPlan failed"); return StatusCode(500, new { success = false, error = "Create failed" }); }
+        }
+
+        [Authorize(Roles = "Admin,Teacher")]
+        [HttpPost]
+        public async Task<IActionResult> UpdateLessonPlan([FromBody] LessonPlanDto dto, CancellationToken token)
+        {
+            try
+            {
+                var id = await _mediator.Send(new UpdateLessonPlanCommand { Plan = dto }, token);
+                return Ok(new { success = true, id });
+            }
+            catch (ValidationException ex) { _logger.Error(ex, "UpdateLessonPlan validation failed"); return BadRequest(new { success = false, errors = ex.Errors.Select(e => e.ErrorMessage) }); }
+            catch (Exception ex) { _logger.Error(ex, "UpdateLessonPlan failed"); return StatusCode(500, new { success = false, error = "Update failed" }); }
+        }
+
+        [Authorize(Roles = "Admin,Teacher")]
+        [HttpPost]
+        public async Task<IActionResult> DeleteLessonPlan([FromBody] int planId, CancellationToken token)
+        {
+            try
+            {
+                var id = await _mediator.Send(new DeleteLessonPlanCommand { PlanId = planId }, token);
+                return Ok(new { success = true, id });
+            }
+            catch (Exception ex) { _logger.Error(ex, "DeleteLessonPlan failed"); return StatusCode(500, new { success = false, error = "Delete failed" }); }
+        }
+
+        [Authorize(Roles = "Admin,Teacher")]
+        [HttpPost]
+        public async Task<IActionResult> UpdateLessonPlanStatus([FromBody] UpdateLessonPlanStatusCommand command, CancellationToken token)
+        {
+            try
+            {
+                var id = await _mediator.Send(command, token);
+                return Ok(new { success = true, id });
+            }
+            catch (ValidationException ex) { _logger.Error(ex, "UpdateLessonPlanStatus validation failed"); return BadRequest(new { success = false, errors = ex.Errors.Select(e => e.ErrorMessage) }); }
+            catch (Exception ex) { _logger.Error(ex, "UpdateLessonPlanStatus failed"); return StatusCode(500, new { success = false, error = "Status update failed" }); }
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetLessonPlanById(int planId, CancellationToken token)
+        {
+            try
+            {
+                var dto = await _mediator.Send(new GetLessonPlanByIdQuery { PlanId = planId }, token);
+                if (dto == null) return NotFound();
+                return Json(dto);
+            }
+            catch (Exception ex) { _logger.Error(ex, "GetLessonPlanById failed"); return StatusCode(500); }
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetLessonPlanList(
+            string? academicYear, string? className, string? section,
+            int? subjectId, int? teacherUserId, DateTime? fromDate, DateTime? toDate, string? status,
+            CancellationToken token)
+        {
+            try
+            {
+                var list = await _mediator.Send(new GetLessonPlanListQuery
+                {
+                    AcademicYear = academicYear,
+                    ClassName = className,
+                    Section = section,
+                    SubjectId = subjectId,
+                    TeacherUserId = teacherUserId,
+                    FromDate = fromDate,
+                    ToDate = toDate,
+                    Status = status
+                }, token);
+                return Json(list);
+            }
+            catch (Exception ex) { _logger.Error(ex, "GetLessonPlanList failed"); return Json(Array.Empty<LessonPlanDto>()); }
+        }
+
+        // ---- Calendar ----
+        [Authorize(Roles = "Admin,Teacher")]
+        [HttpPost]
+        public async Task<IActionResult> CreateCalendarEvent([FromBody] AcademicCalendarEventDto dto, CancellationToken token)
+        {
+            try
+            {
+                var id = await _mediator.Send(new CreateCalendarEventCommand { Event = dto }, token);
+                return Ok(new { success = true, id });
+            }
+            catch (ValidationException ex) {
+                _logger.Error(ex, "CreateCalendarEvent validation failed"); 
+                return BadRequest(new { success = false, errors = ex.Errors.Select(e => e.ErrorMessage) });
+            }
+            catch (Exception ex) { 
+                _logger.Error(ex, "CreateCalendarEvent failed");
+                return StatusCode(500, new { success = false, error = "Create failed" }); 
+            }
+        }
+
+        [Authorize(Roles = "Admin,Teacher")]
+        [HttpPost]
+        public async Task<IActionResult> UpdateCalendarEvent([FromBody] AcademicCalendarEventDto dto, CancellationToken token)
+        {
+            try
+            {
+                var id = await _mediator.Send(new UpdateCalendarEventCommand { Event = dto }, token);
+                return Ok(new { success = true, id });
+            }
+            catch (ValidationException ex) { 
+                _logger.Error(ex, "UpdateCalendarEvent validation failed");
+                return BadRequest(new { success = false, errors = ex.Errors.Select(e => e.ErrorMessage) }); 
+            }
+            catch (Exception ex) { 
+                _logger.Error(ex, "UpdateCalendarEvent failed");
+                return StatusCode(500, new { success = false, error = "Update failed" });
+            }
+        }
+
+        [Authorize(Roles = "Admin,Teacher")]
+        [HttpPost]
+        public async Task<IActionResult> DeleteCalendarEvent([FromBody] int eventId, CancellationToken token)
+        {
+            try
+            {
+                var id = await _mediator.Send(new DeleteCalendarEventCommand { EventId = eventId }, token);
+                return Ok(new { success = true, id });
+            }
+            catch (Exception ex) { 
+                _logger.Error(ex, "DeleteCalendarEvent failed");
+                return StatusCode(500, new { success = false, error = "Delete failed" }); 
+            }
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetCalendarEventById(int eventId, CancellationToken token)
+        {
+            try
+            {
+                var dto = await _mediator.Send(new GetCalendarEventByIdQuery { EventId = eventId }, token);
+                if (dto == null) return NotFound();
+                return Json(dto);
+            }
+            catch (Exception ex) {
+                _logger.Error(ex, "GetCalendarEventById failed");
+                return StatusCode(500);
+            }
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetCalendarEvents(string? academicYear, DateTime? fromDate, DateTime? toDate, string? className, string? section, string? eventType, bool? isActive, CancellationToken token)
+        {
+            try
+            {
+                var list = await _mediator.Send(new GetCalendarEventsQuery
+                {
+                    AcademicYear = academicYear,
+                    FromDate = fromDate,
+                    ToDate = toDate,
+                    ClassName = className,
+                    Section = section,
+                    EventType = eventType,
+                    IsActive = isActive
+                }, token);
+                return Json(list);
+            }
+            catch (Exception ex) { 
+                
+                _logger.Error(ex, "GetCalendarEvents failed"); 
+                return Json(Array.Empty<AcademicCalendarEventDto>());
+            }
+        }
+
+        // ---- Exams ----
+        [Authorize(Roles = "Admin,Teacher")]
+        [HttpPost]
+        public async Task<IActionResult> CreateExam([FromBody] ExamDto dto, CancellationToken token)
+        {
+            try { var id = await _mediator.Send(new CreateExamCommand { Exam = dto }, token); return Ok(new { success = true, id }); }
+            catch (ValidationException ex) { _logger.Error(ex, "CreateExam validation failed"); return BadRequest(new { success = false, errors = ex.Errors.Select(e => e.ErrorMessage) }); }
+            catch (Exception ex) { 
+                _logger.Error(ex, "CreateExam failed");
+                return StatusCode(500, new { success = false, error = "Create failed" });
+            }
+        }
+
+        [Authorize(Roles = "Admin,Teacher")]
+        [HttpPost]
+        public async Task<IActionResult> UpdateExam([FromBody] ExamDto dto, CancellationToken token)
+        {
+            try { var id = await _mediator.Send(new UpdateExamCommand { Exam = dto }, token); return Ok(new { success = true, id }); }
+            catch (ValidationException ex) { _logger.Error(ex, "UpdateExam validation failed"); return BadRequest(new { success = false, errors = ex.Errors.Select(e => e.ErrorMessage) }); }
+            catch (Exception ex) {
+                _logger.Error(ex, "UpdateExam failed");
+                return StatusCode(500, new { success = false, error = "Update failed" });
+            }
+        }
+
+        [Authorize(Roles = "Admin,Teacher")]
+        [HttpPost]
+        public async Task<IActionResult> DeleteExam([FromBody] int examId, CancellationToken token)
+        {
+            try { var id = await _mediator.Send(new DeleteExamCommand { ExamId = examId }, token); return Ok(new { success = true, id }); }
+            catch (Exception ex) { 
+                _logger.Error(ex, "DeleteExam failed"); 
+                return StatusCode(500, new { success = false, error = "Delete failed" });
+            }
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetExamById(int examId, CancellationToken token)
+        {
+            try { var dto = await _mediator.Send(new GetExamByIdQuery { ExamId = examId }, token); if (dto == null) return NotFound(); return Json(dto); }
+            catch (Exception ex) { 
+                _logger.Error(ex, "GetExamById failed");
+                return StatusCode(500);
+            }
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetExamList(string? academicYear, string? className, string? section, string? examType, bool? isPublished, CancellationToken token)
+        {
+            try
+            {
+                var list = await _mediator.Send(new GetExamListQuery
+                {
+                    AcademicYear = academicYear,
+                    ClassName = className,
+                    Section = section,
+                    ExamType = examType,
+                    IsPublished = isPublished
+                }, token);
+                return Json(list);
+            }
+            catch (Exception ex) { 
+                _logger.Error(ex, "GetExamList failed");
+                return Json(Array.Empty<ExamDto>()); 
+            }
+        }
+
+        // ---- Exam Papers ----
+        [Authorize(Roles = "Admin,Teacher")]
+        [HttpPost]
+        public async Task<IActionResult> UpsertExamPaper([FromBody] ExamPaperDto dto, CancellationToken token)
+        {
+            try
+            {
+                var id = await _mediator.Send(new UpsertExamPaperCommand { Paper = dto }, token);
+                if (id < 0)
+                {
+                    var msg = id switch { -1 => "Class-time conflict", -2 => "Invigilator conflict", -3 => "Room conflict", _ => "Unknown conflict" };
+                    return Conflict(new { success = false, error = msg, code = id });
+                }
+                return Ok(new { success = true, id });
+            }
+            catch (ValidationException ex) { _logger.Error(ex, "UpsertExamPaper validation failed"); return BadRequest(new { success = false, errors = ex.Errors.Select(e => e.ErrorMessage) }); }
+            catch (Exception ex) {
+                _logger.Error(ex, "UpsertExamPaper failed");
+                return StatusCode(500, new { success = false, error = "Save failed" });
+            }
+        }
+
+        [Authorize(Roles = "Admin,Teacher")]
+        [HttpPost]
+        public async Task<IActionResult> DeleteExamPaper([FromBody] int paperId, CancellationToken token)
+        {
+            try { var id = await _mediator.Send(new DeleteExamPaperCommand { PaperId = paperId }, token); return Ok(new { success = true, id }); }
+            catch (Exception ex) {
+                _logger.Error(ex, "DeleteExamPaper failed");
+                return StatusCode(500, new { success = false, error = "Delete failed" });
+            }
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetExamTimetableByExam(int examId, CancellationToken token)
+        {
+            try { var list = await _mediator.Send(new GetExamTimetableByExamQuery { ExamId = examId }, token); return Json(list); }
+            catch (Exception ex) {
+                _logger.Error(ex, "GetExamTimetableByExam failed");
+                return Json(Array.Empty<ExamPaperDto>());
+            }
+        }
+
+
+        [HttpGet]
+        public async Task<IActionResult> GetExamTimetableByClass(string academicYear, string className, string? section, CancellationToken token)
+        {
+            try
+            {
+                var list = await _mediator.Send(new GetExamTimetableByClassQuery { AcademicYear = academicYear, ClassName = className, Section = section }, token);
+                return Json(list);
+            }
+            catch (Exception ex) {
+                _logger.Error(ex, "GetExamTimetableByClass failed");
+                return Json(Array.Empty<ExamPaperDto>());
+            }
+        }
+
+        [Authorize(Roles = "Admin,Teacher")]
+        [HttpPost]
+        public async Task<IActionResult> ValidateExamPaperConflict([FromBody] ExamPaperDto dto, CancellationToken token)
+        {
+            try
+            {
+                var code = await _mediator.Send(new ValidateExamPaperConflictQuery { Paper = dto }, token);
+                return Json(new { code });
+            }
+            catch (Exception ex) {
+                _logger.Error(ex, "ValidateExamPaperConflict failed");
+                return StatusCode(500); 
+            }
+        }
     }
 }
