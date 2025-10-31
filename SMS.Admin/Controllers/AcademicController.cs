@@ -735,7 +735,7 @@ namespace SMS.Admin.Controllers
                 var id = await _mediator.Send(new UpsertExamPaperCommand { Paper = dto }, token);
                 if (id < 0)
                 {
-                    var msg = id switch { -1 => "Class-time conflict", -2 => "Invigilator conflict", -3 => "Room conflict", _ => "Unknown conflict" };
+                    var msg = id switch { -1 => "Class-time conflict", -2 => "Invigilator conflict", -3 => "Room conflict", -4 => "Paper date shuould be in the range of the Exam", _ => "Unknown conflict" };
                     return Conflict(new { success = false, error = msg, code = id });
                 }
                 return Ok(new { success = true, id });

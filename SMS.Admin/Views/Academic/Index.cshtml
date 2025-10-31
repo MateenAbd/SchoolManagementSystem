@@ -1,4 +1,1240 @@
-﻿@{
+﻿@using System.Security.Claims
+@{
+    ViewData["Title"] = "Academic";
+    var isAdmin = User?.IsInRole("Admin") == true;
+    var isTeacher = User?.IsInRole("Teacher") == true;
+}
+<div id="academicPage" class="row">
+    <div class="col-12 d-flex justify-content-between align-items-center mb-3">
+        <h2 class="mb-0">Academic</h2>
+        <div id="acGlobalMsg" class="d-none"></div>
+    </div>
+
+    @if (!(isAdmin || isTeacher))
+    {
+        <div class="col-12">
+            <div class="alert alert-warning">You do not have permission to access Academic module.</div>
+        </div>
+    }
+    else
+    {
+        <div class="col-12">
+            <ul class="nav nav-tabs" id="acTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="tab-subjects" data-bs-toggle="tab" data-bs-target="#pane-subjects" type="button" role="tab">Subjects</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="tab-courses" data-bs-toggle="tab" data-bs-target="#pane-courses" type="button" role="tab">Courses & Syllabus</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="tab-rooms" data-bs-toggle="tab" data-bs-target="#pane-rooms" type="button" role="tab">Classrooms & Rooms</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="tab-timetable" data-bs-toggle="tab" data-bs-target="#pane-timetable" type="button" role="tab">Timetable</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="tab-lesson" data-bs-toggle="tab" data-bs-target="#pane-lesson" type="button" role="tab">Lesson Plans</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="tab-calendar" data-bs-toggle="tab" data-bs-target="#pane-calendar" type="button" role="tab">Academic Calendar</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="tab-exams" data-bs-toggle="tab" data-bs-target="#pane-exams" type="button" role="tab">Exams</button>
+                </li>
+            </ul>
+
+            <div class="tab-content mt-3">
+
+                <!-- Subjects -->
+                <div class="tab-pane fade show active" id="pane-subjects" role="tabpanel" aria-labelledby="tab-subjects">
+                    <div class="card shadow-sm">
+                        <div class="card-body">
+                            <div id="subMsg" class="d-none"></div>
+                            <div class="row g-2 align-items-end">
+                                <div class="col-md-3">
+                                    <label class="form-label">Active</label>
+                                    <select id="subFilterActive" class="form-select">
+                                        <option value="">Any</option>
+                                        <option value="true">Active</option>
+                                        <option value="false">Inactive</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3 d-flex gap-2">
+                                    <button class="btn btn-outline-primary" id="btnLoadSubjects">Refresh</button>
+                                    <button class="btn btn-primary" id="btnNewSubject">New Subject</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-striped align-middle mb-0" id="subTable">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th style="width:100px;">Subject ID</th>
+                                            <th>Code</th>
+                                            <th>Name</th>
+                                            <th>Short</th>
+                                            <th>Description</th>
+                                            <th style="width:110px;">Active</th>
+                                            <th style="width:180px;">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody><tr><td colspan="7" class="p-3 text-center text-muted">No data</td></tr></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Courses & Syllabus -->
+                <div class="tab-pane fade" id="pane-courses" role="tabpanel" aria-labelledby="tab-courses">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <div id="courseMsg" class="d-none"></div>
+                        </div>
+
+                        <div class="col-12 col-xl-6">
+                            <div class="card shadow-sm">
+                                <div class="card-header d-flex justify-content-between align-items-center">
+                                    <span>Courses</span>
+                                    <div class="d-flex gap-2">
+                                        <button class="btn btn-outline-primary btn-sm" id="btnLoadCourses">Refresh</button>
+                                        <button class="btn btn-primary btn-sm" id="btnNewCourse">New Course</button>
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row g-2 align-items-end">
+                                        <div class="col-md-3">
+                                            <label class="form-label">AY</label>
+                                            <input type="text" id="crFilterYear" class="form-control" placeholder="2025-26" />
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label">Class</label>
+                                            <input type="text" id="crFilterClass" class="form-control" />
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label">Subject</label>
+                                            <select id="crFilterSubject" class="form-select">
+                                                <option value="">Any</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label">Active</label>
+                                            <select id="crFilterActive" class="form-select">
+                                                <option value="">Any</option>
+                                                <option value="true">Active</option>
+                                                <option value="false">Inactive</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="card-body p-0">
+                                    <div class="table-responsive">
+                                        <table class="table table-striped align-middle mb-0" id="crTable">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th style="width:90px;">Course ID</th>
+                                                    <th>AY</th>
+                                                    <th>Class</th>
+                                                    <th>Subject</th>
+                                                    <th style="width:110px;">Active</th>
+                                                    <th style="width:180px;">Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody><tr><td colspan="6" class="p-3 text-center text-muted">No data</td></tr></tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Syllabus for selected course -->
+                        <div class="col-12 col-xl-6">
+                            <div class="card shadow-sm">
+                                <div class="card-header d-flex justify-content-between align-items-center">
+                                    <span>Syllabus <small id="syCourseTitle" class="text-muted"></small></span>
+                                    <div class="d-flex gap-2">
+                                        <button class="btn btn-primary btn-sm" id="btnNewSyllabus" disabled>Add Item</button>
+                                    </div>
+                                </div>
+                                <div class="card-body p-0">
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-striped align-middle mb-0" id="syTable">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th style="width:80px;">Order</th>
+                                                    <th style="width:80px;">Unit</th>
+                                                    <th>Topic</th>
+                                                    <th>SubTopic</th>
+                                                    <th style="width:120px;">Hours</th>
+                                                    <th style="width:180px;">Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody><tr><td colspan="6" class="p-3 text-center text-muted">Select a course to view syllabus</td></tr></tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                <div class="card-footer">
+                                    <small class="text-muted">Tip: Use Order to control teaching sequence.</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Classrooms & Rooms -->
+                <div class="tab-pane fade" id="pane-rooms" role="tabpanel" aria-labelledby="tab-rooms">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <div id="roomMsg" class="d-none"></div>
+                        </div>
+                        <div class="col-12 col-xl-6">
+                            <div class="card shadow-sm">
+                                <div class="card-header d-flex justify-content-between align-items-center">
+                                    <span>Rooms</span>
+                                    <div class="d-flex gap-2">
+                                        <button class="btn btn-outline-primary btn-sm" id="btnLoadRooms">Refresh</button>
+                                        <button class="btn btn-primary btn-sm" id="btnNewRoom">New Room</button>
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row g-2 align-items-end">
+                                        <div class="col-md-3">
+                                            <label class="form-label">Active</label>
+                                            <select id="roomFilterActive" class="form-select">
+                                                <option value="">Any</option>
+                                                <option value="true">Active</option>
+                                                <option value="false">Inactive</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="card-body p-0">
+                                    <div class="table-responsive">
+                                        <table class="table table-striped align-middle mb-0" id="roomTable">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th style="width:90px;">Room ID</th>
+                                                    <th>Code</th>
+                                                    <th>Name</th>
+                                                    <th>Capacity</th>
+                                                    <th>Location</th>
+                                                    <th style="width:110px;">Active</th>
+                                                    <th style="width:180px;">Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody><tr><td colspan="7" class="p-3 text-center text-muted">No data</td></tr></tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Available Rooms by Slot -->
+                        <div class="col-12 col-xl-6">
+                            <div class="card shadow-sm">
+                                <div class="card-header">Available Rooms by Slot</div>
+                                <div class="card-body">
+                                    <div id="availRoomMsg" class="d-none"></div>
+                                    <div class="row g-2 align-items-end">
+                                        <div class="col-md-4">
+                                            <label class="form-label">Academic Year</label>
+                                            <input type="text" id="arYear" class="form-control" placeholder="2025-26" />
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label">Day of Week</label>
+                                            <select id="arDay" class="form-select">
+                                                <option value="1">Mon</option>
+                                                <option value="2">Tue</option>
+                                                <option value="3">Wed</option>
+                                                <option value="4">Thu</option>
+                                                <option value="5">Fri</option>
+                                                <option value="6">Sat</option>
+                                                <option value="7">Sun</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label">Period (opt)</label>
+                                            <input type="number" id="arPeriod" class="form-control" />
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label">Start Time (opt)</label>
+                                            <input type="time" id="arStart" class="form-control" />
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label">End Time (opt)</label>
+                                            <input type="time" id="arEnd" class="form-control" />
+                                        </div>
+                                        <div class="col-12">
+                                            <button class="btn btn-outline-primary" id="btnFindRooms">Find Available Rooms</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="card-body p-0">
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-striped align-middle mb-0" id="availRoomTable">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th>Room ID</th>
+                                                    <th>Code</th>
+                                                    <th>Name</th>
+                                                    <th>Capacity</th>
+                                                    <th>Location</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody><tr><td colspan="5" class="p-3 text-center text-muted">No data</td></tr></tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- Timetable -->
+                <div class="tab-pane fade" id="pane-timetable" role="tabpanel" aria-labelledby="tab-timetable">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <div id="ttMsg" class="d-none"></div>
+                        </div>
+
+                        <div class="col-12">
+                            <div class="card shadow-sm">
+                                <div class="card-header d-flex justify-content-between align-items-center">
+                                    <span>Upsert Timetable Entry</span>
+                                    <div class="d-flex gap-2">
+                                        <button class="btn btn-primary btn-sm" id="btnNewTimetable">New Entry</button>
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    <div class="alert alert-info mb-2">Use Validate to check conflicts before saving.</div>
+                                    <div class="row g-2">
+                                        <div class="col-md-2">
+                                            <label class="form-label">AY</label>
+                                            <input type="text" id="ttAY" class="form-control" placeholder="2025-26" />
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label class="form-label">Class</label>
+                                            <input type="text" id="ttClass" class="form-control" />
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label class="form-label">Section</label>
+                                            <input type="text" id="ttSection" class="form-control" />
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label class="form-label">Day</label>
+                                            <select id="ttDay" class="form-select">
+                                                <option value="1">Mon</option>
+                                                <option value="2">Tue</option>
+                                                <option value="3">Wed</option>
+                                                <option value="4">Thu</option>
+                                                <option value="5">Fri</option>
+                                                <option value="6">Sat</option>
+                                                <option value="7">Sun</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label class="form-label">Period (opt)</label>
+                                            <input type="number" id="ttPeriod" class="form-control" />
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label class="form-label">Subject</label>
+                                            <select id="ttSubject" class="form-select"><option value="">Select</option></select>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label class="form-label">Course (opt)</label>
+                                            <input type="number" id="ttCourseId" class="form-control" />
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label class="form-label">Teacher (userId)</label>
+                                            <input type="number" id="ttTeacher" class="form-control" />
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label class="form-label">Room</label>
+                                            <select id="ttRoom" class="form-select"><option value="">Select</option></select>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label class="form-label">Start (opt)</label>
+                                            <input type="time" id="ttStart" class="form-control" />
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label class="form-label">End (opt)</label>
+                                            <input type="time" id="ttEnd" class="form-control" />
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label class="form-label">Active</label>
+                                            <select id="ttActive" class="form-select">
+                                                <option value="true">Yes</option>
+                                                <option value="false">No</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-12 d-flex gap-2">
+                                            <button class="btn btn-outline-secondary" id="btnValidateTimetable">Validate</button>
+                                            <button class="btn btn-success" id="btnSaveTimetable">Save</button>
+                                            <input type="hidden" id="ttId" value="0" />
+                                        </div>
+                                        <div class="col-12">
+                                            <div id="ttValidateMsg" class="mt-2"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- View Class Timetable -->
+                        <div class="col-12 col-xl-6">
+                            <div class="card shadow-sm">
+                                <div class="card-header">Class Timetable</div>
+                                <div class="card-body">
+                                    <div class="row g-2 align-items-end">
+                                        <div class="col-md-3">
+                                            <label class="form-label">AY</label>
+                                            <input type="text" id="vtAY" class="form-control" placeholder="2025-26" />
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label">Class</label>
+                                            <input type="text" id="vtClass" class="form-control" />
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label">Section (opt)</label>
+                                            <input type="text" id="vtSection" class="form-control" />
+                                        </div>
+                                        <div class="col-md-3">
+                                            <button class="btn btn-outline-primary w-100" id="btnViewClassTimetable">Load</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="card-body p-0">
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-striped align-middle mb-0" id="vtClassTable">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th>Day</th>
+                                                    <th>Period</th>
+                                                    <th>Time</th>
+                                                    <th>Subject</th>
+                                                    <th>Teacher</th>
+                                                    <th>Room</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody><tr><td colspan="6" class="p-3 text-center text-muted">No data</td></tr></tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- View Teacher Timetable -->
+                        <div class="col-12 col-xl-6">
+                            <div class="card shadow-sm">
+                                <div class="card-header">Teacher Timetable</div>
+                                <div class="card-body">
+                                    <div class="row g-2 align-items-end">
+                                        <div class="col-md-4">
+                                            <label class="form-label">AY</label>
+                                            <input type="text" id="ttcAY" class="form-control" placeholder="2025-26" />
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label">Teacher (userId)</label>
+                                            <input type="number" id="ttcTeacher" class="form-control" />
+                                        </div>
+                                        <div class="col-md-4">
+                                            <button class="btn btn-outline-primary w-100" id="btnViewTeacherTimetable">Load</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="card-body p-0">
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-striped align-middle mb-0" id="vtTeacherTable">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th>Day</th>
+                                                    <th>Period</th>
+                                                    <th>Time</th>
+                                                    <th>Class</th>
+                                                    <th>Subject</th>
+                                                    <th>Room</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody><tr><td colspan="6" class="p-3 text-center text-muted">No data</td></tr></tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- Lesson Plans -->
+                <div class="tab-pane fade" id="pane-lesson" role="tabpanel" aria-labelledby="tab-lesson">
+                    <div class="card shadow-sm">
+                        <div class="card-body">
+                            <div id="lpMsg" class="d-none"></div>
+                            <div class="row g-2 align-items-end">
+                                <div class="col-md-2">
+                                    <label class="form-label">AY</label>
+                                    <input type="text" id="lpAY" class="form-control" placeholder="2025-26" />
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">Class</label>
+                                    <input type="text" id="lpClass" class="form-control" />
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">Section</label>
+                                    <input type="text" id="lpSection" class="form-control" />
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">Subject</label>
+                                    <select id="lpSubject" class="form-select"><option value="">Any</option></select>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">Teacher (userId)</label>
+                                    <input type="number" id="lpTeacher" class="form-control" />
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">Status</label>
+                                    <select id="lpStatus" class="form-select">
+                                        <option value="">Any</option>
+                                        <option>Draft</option>
+                                        <option>Planned</option>
+                                        <option>Delivered</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">From</label>
+                                    <input type="date" id="lpFrom" class="form-control" />
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">To</label>
+                                    <input type="date" id="lpTo" class="form-control" />
+                                </div>
+                                <div class="col-md-4 d-flex gap-2">
+                                    <button class="btn btn-outline-primary" id="btnLoadPlans">Refresh</button>
+                                    <button class="btn btn-primary" id="btnNewPlan">New Plan</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-striped align-middle mb-0" id="lpTable">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th style="width:90px;">Plan ID</th>
+                                            <th>Date</th>
+                                            <th>Class</th>
+                                            <th>Subject</th>
+                                            <th>Teacher</th>
+                                            <th>Topic</th>
+                                            <th>Status</th>
+                                            <th style="width:220px;">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody><tr><td colspan="8" class="p-3 text-center text-muted">No data</td></tr></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Academic Calendar -->
+                <div class="tab-pane fade" id="pane-calendar" role="tabpanel" aria-labelledby="tab-calendar">
+                    <div class="card shadow-sm">
+                        <div class="card-body">
+                            <div id="calMsg" class="d-none"></div>
+                            <div class="row g-2 align-items-end">
+                                <div class="col-md-2">
+                                    <label class="form-label">AY</label>
+                                    <input type="text" id="calAY" class="form-control" placeholder="2025-26" />
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">From</label>
+                                    <input type="date" id="calFrom" class="form-control" />
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">To</label>
+                                    <input type="date" id="calTo" class="form-control" />
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">Class</label>
+                                    <input type="text" id="calClass" class="form-control" />
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">Section</label>
+                                    <input type="text" id="calSection" class="form-control" />
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">Type</label>
+                                    <input type="text" id="calType" class="form-control" placeholder="Holiday/Exam/Event" />
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">Active</label>
+                                    <select id="calActive" class="form-select">
+                                        <option value="">Any</option>
+                                        <option value="true">Active</option>
+                                        <option value="false">Inactive</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4 d-flex gap-2">
+                                    <button class="btn btn-outline-primary" id="btnLoadEvents">Refresh</button>
+                                    <button class="btn btn-primary" id="btnNewEvent">New Event</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-striped align-middle mb-0" id="calTable">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th style="width:90px;">Event ID</th>
+                                            <th>AY</th>
+                                            <th>Type</th>
+                                            <th>Title</th>
+                                            <th>Class</th>
+                                            <th>Dates</th>
+                                            <th>Active</th>
+                                            <th style="width:180px;">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody><tr><td colspan="8" class="p-3 text-center text-muted">No data</td></tr></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Exams -->
+                <div class="tab-pane fade" id="pane-exams" role="tabpanel" aria-labelledby="tab-exams">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <div id="examMsg" class="d-none"></div>
+                        </div>
+                        <div class="col-12">
+                            <div class="card shadow-sm">
+                                <div class="card-header d-flex justify-content-between align-items-center">
+                                    <span>Exams</span>
+                                    <div class="d-flex gap-2">
+                                        <button class="btn btn-outline-primary btn-sm" id="btnLoadExams">Refresh</button>
+                                        <button class="btn btn-primary btn-sm" id="btnNewExam">New Exam</button>
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row g-2 align-items-end">
+                                        <div class="col-md-2">
+                                            <label class="form-label">AY</label>
+                                            <input type="text" id="exFilterYear" class="form-control" placeholder="2025-26" />
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label class="form-label">Class</label>
+                                            <input type="text" id="exFilterClass" class="form-control" />
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label class="form-label">Section</label>
+                                            <input type="text" id="exFilterSection" class="form-control" />
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label class="form-label">Type</label>
+                                            <input type="text" id="exFilterType" class="form-control" placeholder="UnitTest/Term/..." />
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label class="form-label">Published</label>
+                                            <select id="exFilterPub" class="form-select">
+                                                <option value="">Any</option>
+                                                <option value="true">Published</option>
+                                                <option value="false">Unpublished</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="card-body p-0">
+                                    <div class="table-responsive">
+                                        <table class="table table-striped align-middle mb-0" id="exTable">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th style="width:90px;">Exam ID</th>
+                                                    <th>AY</th>
+                                                    <th>Exam</th>
+                                                    <th>Type</th>
+                                                    <th>Class</th>
+                                                    <th>Dates</th>
+                                                    <th>Published</th>
+                                                    <th style="width:220px;">Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody><tr><td colspan="8" class="p-3 text-center text-muted">No data</td></tr></tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Exam Timetable (by selected Exam) + Papers -->
+                        <div class="col-12">
+                            <div class="card shadow-sm">
+                                <div class="card-header d-flex justify-content-between align-items-center">
+                                    <span>Exam Timetable <small id="exPapersTitle" class="text-muted"></small></span>
+                                    <div class="d-flex gap-2">
+                                        <button class="btn btn-primary btn-sm" id="btnNewPaper" disabled>Add Paper</button>
+                                    </div>
+                                </div>
+                                <div class="card-body p-0">
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-striped align-middle mb-0" id="paperTable">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th style="width:90px;">Paper ID</th>
+                                                    <th>Subject</th>
+                                                    <th>Exam Date</th>
+                                                    <th>Time</th>
+                                                    <th>Room</th>
+                                                    <th>Invigilator</th>
+                                                    <th>Max/Pass</th>
+                                                    <th style="width:220px;">Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody><tr><td colspan="8" class="p-3 text-center text-muted">Select an exam to load papers</td></tr></tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                <div class="card-footer">
+                                    <small class="text-muted">Use Validate to check room/teacher conflicts before saving.</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Exam Timetable by Class -->
+                        <div class="col-12">
+                            <div class="card shadow-sm">
+                                <div class="card-header">Exam Timetable by Class</div>
+                                <div class="card-body">
+                                    <div class="row g-2 align-items-end">
+                                        <div class="col-md-3">
+                                            <label class="form-label">AY</label>
+                                            <input type="text" id="exTTYear" class="form-control" placeholder="2025-26" />
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label">Class</label>
+                                            <input type="text" id="exTTClass" class="form-control" />
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label">Section (opt)</label>
+                                            <input type="text" id="exTTSection" class="form-control" />
+                                        </div>
+                                        <div class="col-md-3">
+                                            <button class="btn btn-outline-primary w-100" id="btnLoadExamTTByClass">Load</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="card-body p-0">
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-striped align-middle mb-0" id="exTTClassTable">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th>Exam</th>
+                                                    <th>Subject</th>
+                                                    <th>Date</th>
+                                                    <th>Time</th>
+                                                    <th>Room</th>
+                                                    <th>Invigilator</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody><tr><td colspan="6" class="p-3 text-center text-muted">No data</td></tr></tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div> <!-- row -->
+                </div> <!-- exams pane -->
+
+            </div> <!-- tab-content -->
+        </div> <!-- col-12 -->
+    }
+</div>
+
+<!-- Modals -->
+
+<!-- Subject Modal -->
+<div class="modal fade" id="subModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-md modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title" id="subModalLabel">New Subject</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <div id="subFormMsg" class="d-none"></div>
+        <input type="hidden" id="subId" value="0" />
+        <div class="row g-2">
+            <div class="col-md-6">
+                <label class="form-label">Subject Code</label>
+                <input type="text" id="subCode" class="form-control" />
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Subject Name</label>
+                <input type="text" id="subName" class="form-control" />
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Short Name</label>
+                <input type="text" id="subShort" class="form-control" />
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Active</label>
+                <select id="subActive" class="form-select">
+                    <option value="true">Yes</option>
+                    <option value="false">No</option>
+                </select>
+            </div>
+            <div class="col-12">
+                <label class="form-label">Description</label>
+                <textarea id="subDesc" class="form-control" rows="2"></textarea>
+            </div>
+        </div>
+      </div>
+      <div class="modal-footer d-flex gap-2">
+        <button class="btn btn-success" id="btnSaveSubject">Save</button>
+        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Course Modal -->
+<div class="modal fade" id="crModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-md modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title" id="crModalLabel">New Course</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <div id="crFormMsg" class="d-none"></div>
+        <input type="hidden" id="crId" value="0" />
+        <div class="row g-2">
+            <div class="col-md-6">
+                <label class="form-label">Academic Year</label>
+                <input type="text" id="crYear" class="form-control" placeholder="2025-26" />
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Class</label>
+                <input type="text" id="crClass" class="form-control" />
+            </div>
+            <div class="col-md-8">
+                <label class="form-label">Subject</label>
+                <select id="crSubject" class="form-select"><option value="">Select</option></select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Active</label>
+                <select id="crActive" class="form-select">
+                    <option value="true">Yes</option>
+                    <option value="false">No</option>
+                </select>
+            </div>
+            <div class="col-12">
+                <label class="form-label">Description</label>
+                <textarea id="crDesc" class="form-control" rows="2"></textarea>
+            </div>
+        </div>
+      </div>
+      <div class="modal-footer d-flex gap-2">
+        <button class="btn btn-success" id="btnSaveCourse">Save</button>
+        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Syllabus Modal -->
+<div class="modal fade" id="syModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title" id="syModalLabel">Add Syllabus Item</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <div id="syFormMsg" class="d-none"></div>
+        <input type="hidden" id="syId" value="0" />
+        <input type="hidden" id="syCourseId" value="0" />
+        <div class="row g-2">
+            <div class="col-md-2">
+                <label class="form-label">Order</label>
+                <input type="number" id="syOrder" class="form-control" />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Unit</label>
+                <input type="number" id="syUnit" class="form-control" />
+            </div>
+            <div class="col-md-8">
+                <label class="form-label">Topic</label>
+                <input type="text" id="syTopic" class="form-control" />
+            </div>
+            <div class="col-12">
+                <label class="form-label">Sub Topic</label>
+                <input type="text" id="sySubTopic" class="form-control" />
+            </div>
+            <div class="col-12">
+                <label class="form-label">Objectives</label>
+                <textarea id="syObjectives" class="form-control" rows="2"></textarea>
+            </div>
+            <div class="col-12">
+                <label class="form-label">Reference Materials</label>
+                <textarea id="syRefs" class="form-control" rows="2"></textarea>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Estimated Hours</label>
+                <input type="number" step="0.1" id="syHours" class="form-control" />
+            </div>
+        </div>
+      </div>
+      <div class="modal-footer d-flex gap-2">
+        <button class="btn btn-success" id="btnSaveSyllabus">Save</button>
+        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Room Modal -->
+<div class="modal fade" id="roomModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-md modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title" id="roomModalLabel">New Room</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <div id="roomFormMsg" class="d-none"></div>
+        <input type="hidden" id="roomId" value="0" />
+        <div class="row g-2">
+            <div class="col-md-6">
+                <label class="form-label">Room Code</label>
+                <input type="text" id="roomCode" class="form-control" />
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Name (opt)</label>
+                <input type="text" id="roomName" class="form-control" />
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Capacity</label>
+                <input type="number" id="roomCapacity" class="form-control" />
+            </div>
+            <div class="col-md-8">
+                <label class="form-label">Location</label>
+                <input type="text" id="roomLocation" class="form-control" />
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Active</label>
+                <select id="roomActive" class="form-select">
+                    <option value="true">Yes</option>
+                    <option value="false">No</option>
+                </select>
+            </div>
+        </div>
+      </div>
+      <div class="modal-footer d-flex gap-2">
+        <button class="btn btn-success" id="btnSaveRoom">Save</button>
+        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Lesson Plan Modal -->
+<div class="modal fade" id="lpModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title" id="lpModalLabel">New Lesson Plan</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <div id="lpFormMsg" class="d-none"></div>
+        <input type="hidden" id="lpId" value="0" />
+        <div class="row g-2">
+            <div class="col-md-2">
+                <label class="form-label">AY</label>
+                <input type="text" id="lpFAy" class="form-control" placeholder="2025-26" />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Class</label>
+                <input type="text" id="lpFClass" class="form-control" />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Section</label>
+                <input type="text" id="lpFSection" class="form-control" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Subject</label>
+                <select id="lpFSubject" class="form-select"><option value="">Select</option></select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Teacher (userId)</label>
+                <input type="number" id="lpFTeacher" class="form-control" />
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label">Plan Date</label>
+                <input type="date" id="lpDate" class="form-control" />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Period</label>
+                <input type="number" id="lpPeriod" class="form-control" />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Start Time</label>
+                <input type="time" id="lpStart" class="form-control" />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">End Time</label>
+                <input type="time" id="lpEnd" class="form-control" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Status</label>
+                <select id="lpStatusVal" class="form-select">
+                    <option>Draft</option>
+                    <option>Planned</option>
+                    <option>Delivered</option>
+                </select>
+            </div>
+
+            <div class="col-12">
+                <label class="form-label">Topic</label>
+                <input type="text" id="lpTopic" class="form-control" />
+            </div>
+            <div class="col-12">
+                <label class="form-label">Sub Topic</label>
+                <input type="text" id="lpSubTopic" class="form-control" />
+            </div>
+            <div class="col-12">
+                <label class="form-label">Objectives</label>
+                <textarea id="lpObjectives" class="form-control" rows="2"></textarea>
+            </div>
+            <div class="col-12">
+                <label class="form-label">Activities</label>
+                <textarea id="lpActivities" class="form-control" rows="2"></textarea>
+            </div>
+            <div class="col-12">
+                <label class="form-label">Resources</label>
+                <textarea id="lpResources" class="form-control" rows="2"></textarea>
+            </div>
+            <div class="col-12">
+                <label class="form-label">Homework</label>
+                <textarea id="lpHomework" class="form-control" rows="2"></textarea>
+            </div>
+            <div class="col-12">
+                <label class="form-label">Assessment Methods</label>
+                <textarea id="lpAssess" class="form-control" rows="2"></textarea>
+            </div>
+            <div class="col-12">
+                <label class="form-label">Notes</label>
+                <textarea id="lpNotes" class="form-control" rows="2"></textarea>
+            </div>
+        </div>
+      </div>
+      <div class="modal-footer d-flex gap-2">
+        <button class="btn btn-success" id="btnSavePlan">Save</button>
+        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Calendar Event Modal -->
+<div class="modal fade" id="calModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title" id="calModalLabel">New Event</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <div id="calFormMsg" class="d-none"></div>
+        <input type="hidden" id="calId" value="0" />
+        <div class="row g-2">
+            <div class="col-md-3">
+                <label class="form-label">Academic Year</label>
+                <input type="text" id="calFAy" class="form-control" placeholder="2025-26" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Type</label>
+                <input type="text" id="calFType" class="form-control" placeholder="Holiday/Exam/Event" />
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Title</label>
+                <input type="text" id="calFTitle" class="form-control" />
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Class (opt)</label>
+                <input type="text" id="calFClass" class="form-control" />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Section (opt)</label>
+                <input type="text" id="calFSection" class="form-control" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Start Date</label>
+                <input type="date" id="calFStart" class="form-control" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">End Date</label>
+                <input type="date" id="calFEnd" class="form-control" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Active</label>
+                <select id="calFActive" class="form-select">
+                    <option value="true">Yes</option>
+                    <option value="false">No</option>
+                </select>
+            </div>
+            <div class="col-12">
+                <label class="form-label">Description</label>
+                <textarea id="calFDesc" class="form-control" rows="2"></textarea>
+            </div>
+        </div>
+      </div>
+      <div class="modal-footer d-flex gap-2">
+        <button class="btn btn-success" id="btnSaveEvent">Save</button>
+        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Exam Modal -->
+<div class="modal fade" id="exModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title" id="exModalLabel">New Exam</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <div id="exFormMsg" class="d-none"></div>
+        <input type="hidden" id="exId" value="0" />
+        <div class="row g-2">
+            <div class="col-md-3">
+                <label class="form-label">Academic Year</label>
+                <input type="text" id="exYear" class="form-control" placeholder="2025-26" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Exam Name</label>
+                <input type="text" id="exName" class="form-control" placeholder="Term 1" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Exam Type</label>
+                <input type="text" id="exType" class="form-control" placeholder="UnitTest/Term/Final" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Published</label>
+                <select id="exPublished" class="form-select">
+                    <option value="false">No</option>
+                    <option value="true">Yes</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Class</label>
+                <input type="text" id="exClass" class="form-control" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Section (opt)</label>
+                <input type="text" id="exSection" class="form-control" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Start Date</label>
+                <input type="date" id="exStart" class="form-control" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">End Date</label>
+                <input type="date" id="exEnd" class="form-control" />
+            </div>
+            <div class="col-12">
+                <label class="form-label">Description</label>
+                <textarea id="exDesc" class="form-control" rows="2"></textarea>
+            </div>
+        </div>
+      </div>
+      <div class="modal-footer d-flex gap-2">
+        <button class="btn btn-success" id="btnSaveExam">Save</button>
+        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Exam Paper Modal -->
+<div class="modal fade" id="paperModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title" id="paperModalLabel">Add Exam Paper</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <div id="paperFormMsg" class="d-none"></div>
+        <input type="hidden" id="paperId" value="0" />
+        <input type="hidden" id="paperExamId" value="0" />
+        <div class="row g-2">
+            <div class="col-md-6">
+                <label class="form-label">Subject</label>
+                <select id="paperSubject" class="form-select"><option value="">Select</option></select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Exam Date</label>
+                <input type="date" id="paperDate" class="form-control" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Duration (min)</label>
+                <input type="number" id="paperDuration" class="form-control" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Start Time</label>
+                <input type="time" id="paperStart" class="form-control" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">End Time</label>
+                <input type="time" id="paperEnd" class="form-control" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Room</label>
+                <select id="paperRoom" class="form-select"><option value="">Select</option></select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Invigilator (userId)</label>
+                <input type="number" id="paperInvigilator" class="form-control" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Max Marks</label>
+                <input type="number" id="paperMax" class="form-control" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Passing Marks</label>
+                <input type="number" id="paperPass" class="form-control" />
+            </div>
+            <div class="col-12">
+                <label class="form-label">Notes</label>
+                <textarea id="paperNotes" class="form-control" rows="2"></textarea>
+            </div>
+        </div>
+      </div>
+      <div class="modal-footer d-flex gap-2">
+        <button class="btn btn-outline-secondary" id="btnValidatePaper">Validate</button>
+        <button class="btn btn-success" id="btnSavePaper">Save</button>
+        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+@section Scripts {
+    <script src="/js/script/academic.js"></script>
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+@* @{
     ViewData["Title"] = "Academic Management";
 }
 <h2>Academic Management</h2>
@@ -158,4 +1394,4 @@ UpsertExamPaper sample:
   "passingMarks": 33,
   "isActive": true
 }
-</pre>
+</pre> *@

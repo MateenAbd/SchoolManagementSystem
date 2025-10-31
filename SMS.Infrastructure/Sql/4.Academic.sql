@@ -1148,12 +1148,34 @@ BEGIN
     SET NOCOUNT ON;
     IF @EndTime <= @StartTime THROW 58001, 'EndTime must be greater than StartTime', 1;
 
-    DECLARE @AcademicYear NVARCHAR(15), @ClassName NVARCHAR(50), @Section NVARCHAR(10);
-    SELECT @AcademicYear = e.AcademicYear, @ClassName = e.ClassName, @Section = e.Section
-    FROM dbo.Exams e WHERE e.ExamId = @ExamId;
+    DECLARE @AcademicYear NVARCHAR(15), @ClassName NVARCHAR(50), @Section NVARCHAR(10), @StartDate DATE, @EndDate DATE;
+
+    SELECT @AcademicYear = e.AcademicYear, 
+           @ClassName = e.ClassName, 
+           @Section = e.Section,
+           @StartDate = e.StartDate,
+           @EndDate = e.EndDate
+    FROM dbo.Exams e
+    WHERE e.ExamId = @ExamId;
 
     IF @AcademicYear IS NULL THROW 58002, 'Exam not found', 1;
 
+            --date conflict
+        IF @ExamDate < @StartDate OR @ExamDate > @EndDate
+    BEGIN
+        RETURN -4;
+    END
+    
+            /*
+    IF (@ExamDate IS NOT NULL AND EXISTS (
+        SELECT 1 FROM dbo.Exams 
+        WHERE ExamId = @ExamId
+          AND NOT (StartDate < @ExamDate AND EndDate > @ExamDate)
+    ))
+    BEGIN
+        RETURN -4;
+    END
+    */
     --class conflict: another paper for the same exam/class overlaps
     IF EXISTS (
         SELECT 1
