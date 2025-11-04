@@ -264,7 +264,7 @@ namespace SMS.Infrastructure.Repositories
                 new() { ParameterName = "@PeriodNo", ParameterValue = entry.PeriodNo, ParameterType = DbType.Int32, ParameterDirection = ParameterDirection.Input },
                 new() { ParameterName = "@StartTime", ParameterValue = entry.StartTime, ParameterType = DbType.Time, ParameterDirection = ParameterDirection.Input },
                 new() { ParameterName = "@EndTime", ParameterValue = entry.EndTime, ParameterType = DbType.Time, ParameterDirection = ParameterDirection.Input },
-                new() { ParameterName = "@SubjectId", ParameterValue = entry.SubjectId, ParameterType = DbType.Int32, ParameterDirection = ParameterDirection.Input },
+                //new() { ParameterName = "@SubjectId", ParameterValue = entry.SubjectId, ParameterType = DbType.Int32, ParameterDirection = ParameterDirection.Input },
                 new() { ParameterName = "@CourseId", ParameterValue = entry.CourseId, ParameterType = DbType.Int32, ParameterDirection = ParameterDirection.Input },
                 new() { ParameterName = "@TeacherUserId", ParameterValue = entry.TeacherUserId, ParameterType = DbType.Int32, ParameterDirection = ParameterDirection.Input },
                 new() { ParameterName = "@RoomId", ParameterValue = entry.RoomId, ParameterType = DbType.Int32, ParameterDirection = ParameterDirection.Input },

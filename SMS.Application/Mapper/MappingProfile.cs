@@ -2,6 +2,7 @@
 using SMS.Application.Dto;
 using SMS.Core.Entities;
 
+
 namespace SMS.Application.Mapper
 {
     public class MappingProfile : Profile
@@ -12,7 +13,7 @@ namespace SMS.Application.Mapper
             CreateMap<Student, StudentDto>().ReverseMap();
             CreateMap<StudentDocument, StudentDocumentDto>().ReverseMap();
             CreateMap<StudentEnrollment, StudentEnrollmentDto>().ReverseMap();
-            
+
             //Identity
             CreateMap<User, UserDto>();
             
@@ -46,6 +47,23 @@ namespace SMS.Application.Mapper
             CreateMap<AcademicCalendarEvent, AcademicCalendarEventDto>().ReverseMap();
             CreateMap<Exam, ExamDto>().ReverseMap();
             CreateMap<ExamPaper, ExamPaperDto>().ReverseMap();
+
+            // Fee Management
+            CreateMap<FeeHead, FeeHeadDto>().ReverseMap();
+            CreateMap<FeeTerm, FeeTermDto>().ReverseMap();
+            CreateMap<FeeStructureHeader, FeeStructureDto>().ReverseMap();
+            CreateMap<FeeStructureDetail, FeeStructureDetailDto>().ReverseMap();
+            CreateMap<FeeReceipt, FeeReceiptDto>().ReverseMap();
+            CreateMap<FeeReceiptItem, FeeReceiptItemDto>().ReverseMap();
+            CreateMap<StudentFeeLedger, StudentFeeLedgerDto>().ReverseMap();
+
+            CreateMap<StudentFeeBalance, StudentFeeBalanceDto>() //CreateMap<Source, Destination>
+                .ForMember(d => d.Balance, o => o.MapFrom(s => s.TotalDebit - s.TotalCredit));//was not needed as balance was also present in entity //ForMember(destinationProp, options=> options.MapFromo(sourceExpression))
+            CreateMap<FeeFineRule, FeeFineRuleDto>().ReverseMap();
+            CreateMap<FeeDiscountScheme, FeeDiscountSchemeDto>().ReverseMap();
+            CreateMap<StudentScholarship, StudentScholarshipDto>().ReverseMap();
+            CreateMap<StudentFeeAdjustment, StudentFeeAdjustmentDto>().ReverseMap();
+
         }
     }
 }

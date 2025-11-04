@@ -313,14 +313,12 @@ CREATE TABLE dbo.TimetableEntries
     PeriodNo INT NULL,--either PeriodNo or start/end time
     StartTime TIME NULL,
     EndTime TIME NULL,
-    SubjectId INT NOT NULL,
-    CourseId INT NULL,
+    CourseId INT NOT NULL,
     TeacherUserId INT NULL,
     RoomId INT NULL,
     IsActive BIT NOT NULL DEFAULT 1,
     CreatedAtUtc DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
     UpdatedAtUtc DATETIME2 NULL,
-    CONSTRAINT FK_Timetable_Subjects FOREIGN KEY (SubjectId) REFERENCES dbo.Subjects(SubjectId),
     CONSTRAINT FK_Timetable_Courses FOREIGN KEY (CourseId) REFERENCES dbo.Courses(CourseId),
     CONSTRAINT FK_Timetable_Teachers FOREIGN KEY (TeacherUserId) REFERENCES dbo.Users(UserId),
     CONSTRAINT FK_Timetable_Rooms FOREIGN KEY (RoomId) REFERENCES dbo.Classrooms(RoomId)
@@ -447,8 +445,7 @@ CREATE OR ALTER PROCEDURE UpsertTimetableEntry
     @PeriodNo INT = NULL,
     @StartTime TIME = NULL,
     @EndTime TIME = NULL,
-    @SubjectId INT,
-    @CourseId INT = NULL,
+    @CourseId INT,
     @TeacherUserId INT = NULL,
     @RoomId INT = NULL,
     @IsActive BIT = 1
@@ -518,9 +515,9 @@ BEGIN
     IF @TimetableId = 0
     BEGIN
         INSERT INTO dbo.TimetableEntries
-        (AcademicYear, ClassName, Section, DayOfWeek, PeriodNo, StartTime, EndTime, SubjectId, CourseId, TeacherUserId, RoomId, IsActive)
+        (AcademicYear, ClassName, Section, DayOfWeek, PeriodNo, StartTime, EndTime, CourseId, TeacherUserId, RoomId, IsActive)
         VALUES
-        (@AcademicYear, @ClassName, @Section, @DayOfWeek, @PeriodNo, @StartTime, @EndTime, @SubjectId, @CourseId, @TeacherUserId, @RoomId, @IsActive);
+        (@AcademicYear, @ClassName, @Section, @DayOfWeek, @PeriodNo, @StartTime, @EndTime, @CourseId, @TeacherUserId, @RoomId, @IsActive);
 
         RETURN CONVERT(INT, SCOPE_IDENTITY());
     END
@@ -534,7 +531,6 @@ BEGIN
             PeriodNo = @PeriodNo,
             StartTime = @StartTime,
             EndTime = @EndTime,
-            SubjectId = @SubjectId,
             CourseId = @CourseId,
             TeacherUserId = @TeacherUserId,
             RoomId = @RoomId,

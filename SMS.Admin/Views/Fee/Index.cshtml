@@ -1,0 +1,111 @@
+﻿@{
+    ViewData["Title"] = "Fee Management";
+}
+<h2>Fee Management</h2>
+
+<h3>Fee Heads</h3>
+<ul>
+    <li>POST /Fee/CreateFeeHead</li>
+    <li>POST /Fee/UpdateFeeHead</li>
+    <li>POST /Fee/DeleteFeeHead (body: headId number)</li>
+    <li>GET /Fee/GetFeeHeadById?headId=1</li>
+    <li>GET /Fee/GetFeeHeadList?isActive=true</li>
+</ul>
+
+<h3>Fee Terms</h3>
+<ul>
+    <li>POST /Fee/CreateFeeTerm</li>
+    <li>POST /Fee/UpdateFeeTerm</li>
+    <li>POST /Fee/DeleteFeeTerm (body: termId number)</li>
+    <li>GET /Fee/GetFeeTermById?termId=1</li>
+    <li>GET /Fee/GetFeeTermList?academicYear=2024-2025&isActive=true</li>
+</ul>
+
+<h3>Fee Structures</h3>
+<ul>
+    <li>POST /Fee/UpsertFeeStructure</li>
+    <li>POST /Fee/DeleteFeeStructure (body: structureId number)</li>
+    <li>GET /Fee/GetFeeStructureById?structureId=1</li>
+    <li>GET /Fee/GetFeeStructureByClassTerm?academicYear=2024-2025&className=Grade%208&section=A&termId=1</li>
+    <li>GET /Fee/GetFeeStructureHeaders?academicYear=2024-2025&className=Grade%208&termId=1</li>
+</ul>
+
+<pre>
+UpsertFeeStructure sample:
+{
+  "structureId": 0,
+  "academicYear": "2024-2025",
+  "className": "Grade 8",
+  "section": "A",
+  "termId": 1,
+  "effectiveFrom": "2025-04-01T00:00:00Z",
+  "isActive": true,
+  "details": [
+    { "headId": 1, "amount": 12000, "isOptional": false },
+    { "headId": 2, "amount": 1500,  "isOptional": true }
+  ]
+}
+</pre>
+
+
+<h3>Fee Collection & Ledger</h3>
+<ul>
+    <li>POST /Fee/GenerateStudentTermFee</li>
+    <li>POST /Fee/CollectStudentFee</li>
+    <li>GET /Fee/GetFeeReceiptById?receiptId=1</li>
+    <li>GET /Fee/GetFeeReceiptItems?receiptId=1</li>
+    <li>GET /Fee/GetFeeReceiptList?academicYear=2024-2025&studentId=1&termId=1&fromDate=2025-04-01&toDate=2025-04-30</li>
+    <li>GET /Fee/GetStudentLedger?studentId=1&academicYear=2024-2025&termId=1</li>
+    <li>GET /Fee/GetStudentFeeBalance?studentId=1&academicYear=2024-2025&termId=1</li>
+</ul>
+
+<pre>
+GenerateStudentTermFee
+{
+  "studentId": 1,
+  "academicYear": "2024-2025",
+  "termId": 1
+}
+
+CollectStudentFee
+{
+  "studentId": 1,
+  "academicYear": "2024-2025",
+  "termId": 1,
+  "paymentMode": "Cash",
+  "referenceNo": "CASH-COUNTER-1",
+  "receiptDate": "2025-04-10T10:05:00Z",
+  "receivedByUserId": 1,
+  "items": [
+    { "headId": 1, "amount": 6000 },
+    { "headId": 2, "amount": 750 }
+  ]
+}
+</pre>
+
+<h3>Fines, Discounts, Scholarships, Adjustments</h3>
+<ul>
+    <li>POST /Fee/UpsertFeeFineRule</li>
+    <li>GET /Fee/GetFeeFineRules?academicYear=2024-2025&className=Grade%208&termId=1&isActive=true</li>
+    <li>POST /Fee/UpsertFeeDiscountScheme</li>
+    <li>GET /Fee/GetFeeDiscountSchemes?academicYear=2024-2025&className=Grade%208&termId=1</li>
+    <li>POST /Fee/UpsertStudentScholarship</li>
+    <li>GET /Fee/GetStudentScholarships?studentId=1&academicYear=2024-2025&termId=1</li>
+    <li>POST /Fee/ApplyLateFeeForTerm</li>
+    <li>POST /Fee/ApplyDiscountForStudentTerm</li>
+    <li>POST /Fee/InsertStudentFeeAdjustment</li>
+    <li>GET /Fee/GetStudentFeeAdjustments?studentId=1&academicYear=2024-2025&termId=1&type=Discount</li>
+</ul>
+<pre>
+ApplyLateFeeForTerm
+{ "academicYear": "2024-2025", "termId": 1, "asOfDate": "2025-04-30T00:00:00Z" }
+
+ApplyDiscountForStudentTerm (by scheme)
+{ "studentId": 1, "academicYear": "2024-2025", "termId": 1, "schemeId": 2 }
+
+ApplyDiscountForStudentTerm (ad-hoc)
+{ "studentId": 1, "academicYear": "2024-2025", "termId": 1, "mode": "Percent", "value": 10, "capAmount": 2000 }
+
+InsertStudentFeeAdjustment
+{ "studentId": 1, "academicYear": "2024-2025", "termId": 1, "type": "WriteOff", "amount": 500, "narration": "Principal approval", "entryDate": "2025-04-30", "createdByUserId": 1 }
+</pre>

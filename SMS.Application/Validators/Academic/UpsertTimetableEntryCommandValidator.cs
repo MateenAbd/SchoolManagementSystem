@@ -10,7 +10,6 @@ namespace SMS.Application.Validators.Academic
             RuleFor(x => x.Entry.AcademicYear).NotEmpty();
             RuleFor(x => x.Entry.ClassName).NotEmpty();
             RuleFor(x => x.Entry.DayOfWeek).InclusiveBetween((byte)1, (byte)7);
-            RuleFor(x => x.Entry.SubjectId).GreaterThan(0);
             RuleFor(x => x.Entry).Must(e =>
                 (e.PeriodNo.HasValue && !e.StartTime.HasValue && !e.EndTime.HasValue) ||
                 (!e.PeriodNo.HasValue && e.StartTime.HasValue && e.EndTime.HasValue))

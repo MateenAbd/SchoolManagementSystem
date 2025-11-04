@@ -7,7 +7,7 @@
         IAdmissionRepository AdmissionRepository { get; }
         IAttendanceRepository AttendanceRepository { get; }
         INotificationRepository NotificationRepository { get; }
-
         IAcademicRepository AcademicRepository { get; }
+        IFeeRepository FeeRepository { get; }
     }
 }

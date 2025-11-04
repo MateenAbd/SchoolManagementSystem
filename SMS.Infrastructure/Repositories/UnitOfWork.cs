@@ -35,5 +35,10 @@ namespace SMS.Infrastructure.Repositories
         public INotificationRepository NotificationRepository => _notificationRepository ??= new NotificationRepository(_dbRepository);
         private IAcademicRepository? _academicRepository;
         public IAcademicRepository AcademicRepository => _academicRepository ??= new AcademicRepository(_dbRepository);
+
+        private IFeeRepository? _feeRepository;
+        public IFeeRepository FeeRepository => _feeRepository ??= new FeeRepository(_dbRepository);
+
+
     }
 }
