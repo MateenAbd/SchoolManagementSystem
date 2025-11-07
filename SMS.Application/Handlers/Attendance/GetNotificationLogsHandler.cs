@@ -22,8 +22,7 @@ namespace SMS.Application.Handlers.Attendance
 
         public async Task<IEnumerable<NotificationLogDto>> Handle(GetNotificationLogsQuery request, CancellationToken cancellationToken)
         {
-            var logs = await _uow.NotificationRepository.GetNotificationLogsAsync(
-                cancellationToken, request.FromDate, request.ToDate, request.Type, request.Status, request.ClassName, request.Section, request.StudentId);
+            var logs = await _uow.NotificationRepository.GetNotificationLogsAsync(cancellationToken, request.FromDate, request.ToDate, request.Type, request.Status, request.ClassName, request.Section, request.StudentId);
             return _mapper.Map<IEnumerable<NotificationLogDto>>(logs);
         }
     }

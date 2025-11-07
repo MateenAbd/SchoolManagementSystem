@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using SMS.Application.Interfaces;
 using SMS.Core.Interfaces;
 using SMS.Core.Logger.Interfaces;
@@ -20,6 +21,7 @@ namespace SMS.Infrastructure
             services.AddSingleton<IPasswordHasher, PasswordHasherService>();
             services.AddSingleton<IEmailSender, SmtpEmailSender>();
             services.AddSingleton<ISmsSender, DummySmsSender>();
+            services.AddSingleton<IPaymentGateway, RazorpayPaymentGateway>();
 
         }
     }

@@ -1,0 +1,39 @@
+﻿@{
+    ViewData["Title"] = "Pay Online";
+    var orderNo = (string)(ViewData["OrderNo"] ?? "");
+    // These values will be fetched dynamically via an info endpoint to populate gatewayOrderId and amount
+}
+<h2>Online Payment</h2>
+<p>Order: @orderNo</p>
+<button id="payBtn">Pay Now</button>
+
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script>
+    (async function() {
+      const orderNo = "@orderNo";
+      // Fetch order info (status + gateway order id + amount) via a tiny inline endpoint we already have pieces for
+      const statusResp = await fetch(`/Fee/GetPaymentOrderStatus?orderNo=${encodeURIComponent(orderNo)}`);
+      if (!statusResp.ok) { alert("Order not found"); return; }
+
+      // Now fetch minimal details via a custom endpoint (create it quickly here inline using hidden route):
+      // Since we don't have such endpoint, we ask server to hydrate details inside the page via a JSON script tag for now.
+    })();
+    document.getElementById('payBtn').addEventListener('click', async function() {
+      // Minimal client step: request backend to provide gateway data for this order
+      const resp = await fetch(`/Fee/OrderGatewayInfo?orderNo=@orderNo`);
+      if (!resp.ok) { alert('Unable to load order'); return; }
+      const info = await resp.json(); // { keyId, gatewayOrderId, amountPaise, currency, callbackUrl, displayTitle }
+      const options = {
+        "key": info.keyId,
+        "amount": info.amountPaise,
+        "currency": info.currency,
+        "name": info.displayTitle || "School",
+        "description": "Fees Payment - " + "@orderNo",
+        "order_id": info.gatewayOrderId,
+        "callback_url": info.callbackUrl,
+        "theme": { "color": "#3399cc" }
+      };
+      const rzp = new Razorpay(options);
+      rzp.open();
+    });
+</script>

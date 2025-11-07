@@ -13,6 +13,7 @@ namespace SMS.Application.Dto
         public decimal Amount { get; set; }
         public string? Narration { get; set; }
         public int? ReceiptId { get; set; }
+        public decimal? Balance { get; set; }
         public DateTime EntryDate { get; set; }
         public DateTime CreatedAtUtc { get; set; }
     }

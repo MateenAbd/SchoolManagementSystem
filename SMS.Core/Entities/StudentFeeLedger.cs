@@ -12,6 +12,7 @@ namespace SMS.Core.Entities
         public string EntryType { get; set; } = "Debit"; // Debit/Credit
         public decimal Amount { get; set; }
         public string? Narration { get; set; }
+        public decimal Balance { get; set; }
         public int? ReceiptId { get; set; }           // for credits (payments)
         public DateTime EntryDate { get; set; }
         public DateTime CreatedAtUtc { get; set; }

@@ -501,5 +501,74 @@ namespace SMS.Infrastructure.Repositories
             };
             return _db.ExecuteSpListAsync<StudentFeeAdjustment>(token, "GetStudentFeeAdjustments", p);
         }
+
+        public async Task<int> CreatePaymentOrderAsync(CancellationToken token, PaymentGatewayOrder order)
+        {
+            var p = new List<ParametersCollection>
+            {
+                new() { ParameterName = "@GatewayName", ParameterValue = order.GatewayName, ParameterType = DbType.String, ParameterDirection = ParameterDirection.Input },
+                new() { ParameterName = "@StudentId", ParameterValue = order.StudentId, ParameterType = DbType.Int32, ParameterDirection = ParameterDirection.Input },
+                new() { ParameterName = "@AcademicYear", ParameterValue = order.AcademicYear, ParameterType = DbType.String, ParameterDirection = ParameterDirection.Input },
+                new() { ParameterName = "@TermId", ParameterValue = order.TermId, ParameterType = DbType.Int32, ParameterDirection = ParameterDirection.Input },
+                new() { ParameterName = "@Amount", ParameterValue = order.Amount, ParameterType = DbType.Decimal, ParameterDirection = ParameterDirection.Input },
+                new() { ParameterName = "@Currency", ParameterValue = order.Currency, ParameterType = DbType.String, ParameterDirection = ParameterDirection.Input },
+                new() { ParameterName = "@ReturnUrl", ParameterValue = order.ReturnUrl, ParameterType = DbType.String, ParameterDirection = ParameterDirection.Input },
+                new() { ParameterName = "@CallbackUrl", ParameterValue = order.CallbackUrl, ParameterType = DbType.String, ParameterDirection = ParameterDirection.Input },
+                new() { ParameterName = "@ItemsJson", ParameterValue = order.ItemsJson, ParameterType = DbType.String, ParameterDirection = ParameterDirection.Input }
+            };
+            return (int)await _db.ExecuteSpReturnValueAsync(token, "CreatePaymentOrder", p);
+        }
+
+        public async Task<int> UpdatePaymentOrderStatusAsync(CancellationToken token, int orderId, string status, string? paymentId, string? gatewayOrderId, string? referenceNo)
+        {
+            var p = new List<ParametersCollection>
+            {
+                new() { ParameterName = "@OrderId", ParameterValue = orderId, ParameterType = DbType.Int32, ParameterDirection = ParameterDirection.Input },
+                new() { ParameterName = "@Status", ParameterValue = status, ParameterType = DbType.String, ParameterDirection = ParameterDirection.Input },
+                new() { ParameterName = "@PaymentId", ParameterValue = paymentId, ParameterType = DbType.String, ParameterDirection = ParameterDirection.Input },
+                new() { ParameterName = "@GatewayOrderId", ParameterValue = gatewayOrderId, ParameterType = DbType.String, ParameterDirection = ParameterDirection.Input },
+                new() { ParameterName = "@ReferenceNo", ParameterValue = referenceNo, ParameterType = DbType.String, ParameterDirection = ParameterDirection.Input }
+            };
+            return (int)await _db.ExecuteSpReturnValueAsync(token, "UpdatePaymentOrderStatus", p);
+        }
+
+        public Task<PaymentGatewayOrder?> GetPaymentOrderByOrderNoAsync(CancellationToken token, string orderNo)
+        {
+            var p = new List<ParametersCollection>
+            {
+                new() { ParameterName = "@OrderNo", ParameterValue = orderNo, ParameterType = DbType.String, ParameterDirection = ParameterDirection.Input }
+            };
+            return _db.ExecuteSpSingleAsync<PaymentGatewayOrder>(token, "GetPaymentOrderByOrderNo", p);
+        }
+
+        public async Task<int> MarkPaymentOrderReceiptedAsync(CancellationToken token, int orderId, int receiptId)
+        {
+            var p = new List<ParametersCollection>
+            {
+                new() { ParameterName = "@OrderId", ParameterValue = orderId, ParameterType = DbType.Int32, ParameterDirection = ParameterDirection.Input },
+                new() { ParameterName = "@ReceiptId", ParameterValue = receiptId, ParameterType = DbType.Int32, ParameterDirection = ParameterDirection.Input }
+            };
+            return (int)await _db.ExecuteSpReturnValueAsync(token, "MarkPaymentOrderReceipted", p);
+        }
+
+        public async Task<int> InsertPaymentGatewayEventAsync(CancellationToken token, PaymentGatewayEvent ev)
+        {
+            var p = new List<ParametersCollection>
+            {
+                new() { ParameterName = "@OrderId", ParameterValue = ev.OrderId, ParameterType = DbType.Int32, ParameterDirection = ParameterDirection.Input },
+                new() { ParameterName = "@EventType", ParameterValue = ev.EventType, ParameterType = DbType.String, ParameterDirection = ParameterDirection.Input },
+                new() { ParameterName = "@Payload", ParameterValue = ev.Payload, ParameterType = DbType.String, ParameterDirection = ParameterDirection.Input }
+            };
+            return (int)await _db.ExecuteSpReturnValueAsync(token, "InsertPaymentGatewayEvent", p);
+        }
+
+        public Task<PaymentGatewayOrder?> GetPaymentOrderByGatewayOrderIdAsync(CancellationToken token, string gatewayOrderId)
+        {
+            var p = new List<ParametersCollection>
+            {
+                new() { ParameterName = "@GatewayOrderId", ParameterValue = gatewayOrderId, ParameterType = DbType.String, ParameterDirection = ParameterDirection.Input }
+            };
+            return _db.ExecuteSpSingleAsync<PaymentGatewayOrder>(token, "GetPaymentOrderByGatewayOrderId", p);
+        }
     }
 }

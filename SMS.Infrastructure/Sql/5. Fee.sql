@@ -390,6 +390,7 @@ CREATE TABLE dbo.StudentFeeLedger
     EntryType NVARCHAR(10) NOT NULL, -- Debit/Credit
     Amount DECIMAL(18,2) NOT NULL,
     Narration NVARCHAR(500) NULL,
+    Balance DECIMAL(18,2) NULL,
     ReceiptId INT NULL,
     EntryDate DATE NOT NULL,
     CreatedAtUtc DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
@@ -401,44 +402,99 @@ CREATE TABLE dbo.StudentFeeLedger
 CREATE INDEX IX_SFL_StudentTerm ON dbo.StudentFeeLedger(StudentId, AcademicYear, TermId, EntryDate);
 GO
 
-CREATE OR ALTER PROCEDURE GenerateStudentTermFee
+Create or ALTER PROCEDURE dbo.GenerateStudentTermFee
     @StudentId INT,
     @AcademicYear NVARCHAR(15),
     @TermId INT
 AS
 BEGIN
-    SET NOCOUNT ON;
+    SET NOCOUNT, XACT_ABORT ON;
+    BEGIN TRY
+        BEGIN TRAN;
 
-    DECLARE @ClassName NVARCHAR(50), @Section NVARCHAR(10);
-    SELECT @ClassName = ClassName, @Section = Section FROM dbo.Students WHERE StudentId = @StudentId;
-    IF @ClassName IS NULL THROW 61001, 'Student not found', 1;
+        -- 1. Get student class/section
+        DECLARE @ClassName NVARCHAR(50), @Section NVARCHAR(10);
+        SELECT @ClassName = ClassName, @Section = Section
+        FROM dbo.Students WHERE StudentId = @StudentId;
 
-    DECLARE @StructureId INT;
-    SELECT TOP 1 @StructureId = s.StructureId
-    FROM dbo.FeeStructures s
-    WHERE s.AcademicYear = @AcademicYear
-      AND s.ClassName = @ClassName
-      AND ISNULL(s.Section,'') = ISNULL(@Section,'')
-      AND s.TermId = @TermId
-      AND s.IsActive = 1
-    ORDER BY s.StructureId DESC;
+        IF @ClassName IS NULL
+            THROW 61001, 'Student not found', 1;
 
-    IF @StructureId IS NULL THROW 61002, 'Fee structure not found for student class/term', 1;
+        -- 2. Find fee structure
+        DECLARE @StructureId INT;
+        SELECT TOP 1 @StructureId = StructureId
+        FROM dbo.FeeStructures
+        WHERE AcademicYear = @AcademicYear
+          AND ClassName = @ClassName
+          AND ISNULL(Section,'') = ISNULL(@Section,'')
+          AND TermId = @TermId
+          AND IsActive = 1
+        ORDER BY StructureId DESC;
 
-    DECLARE @Inserted INT = 0;
+        IF @StructureId IS NULL
+            THROW 61002, 'Fee structure not found', 1;
 
-    INSERT INTO dbo.StudentFeeLedger (StudentId, AcademicYear, TermId, HeadId, EntryType, Amount, Narration, ReceiptId, EntryDate)
-    SELECT @StudentId, @AcademicYear, @TermId, d.HeadId, 'Debit', d.Amount, 'Term Fee', NULL, CAST(SYSUTCDATETIME() AS DATE)
-    FROM dbo.FeeStructureDetails d
-    WHERE d.StructureId = @StructureId
-      AND NOT EXISTS (
-            SELECT 1 FROM dbo.StudentFeeLedger l
-            WHERE l.StudentId = @StudentId AND l.AcademicYear = @AcademicYear AND l.TermId = @TermId
-              AND l.HeadId = d.HeadId AND l.EntryType = 'Debit'
-        );
+        -- 3. Insert missing debits
+        INSERT INTO dbo.StudentFeeLedger (
+            StudentId, AcademicYear, TermId, HeadId, EntryType,
+            Amount, Narration, ReceiptId, EntryDate, CreatedAtUtc, Balance
+        )
+        SELECT 
+            @StudentId, @AcademicYear, @TermId,
+            d.HeadId, 'Debit', d.Amount, 'Term Fee',
+            NULL, CAST(SYSUTCDATETIME() AS DATE), SYSUTCDATETIME(),
+            NULL  -- temp NULL
+        FROM dbo.FeeStructureDetails d
+        WHERE d.StructureId = @StructureId
+          AND NOT EXISTS (
+              SELECT 1 FROM dbo.StudentFeeLedger l
+              WHERE l.StudentId = @StudentId
+                AND l.AcademicYear = @AcademicYear
+                AND l.TermId = @TermId
+                AND l.HeadId = d.HeadId
+                AND l.EntryType = 'Debit'
+          );
 
-    SET @Inserted = @@ROWCOUNT;
-    RETURN @Inserted;
+        DECLARE @Inserted INT = @@ROWCOUNT;
+        IF @Inserted = 0
+        BEGIN
+            COMMIT TRAN;
+            RETURN 0;
+        END
+
+        -- 4. REBUILD RUNNING BALANCE FOR ALL ENTRIES (in correct order)
+        ;WITH LedgerOrdered AS (
+            SELECT 
+                LedgerId,
+                Amount,
+                CASE WHEN EntryType = 'Debit' THEN -Amount ELSE Amount END AS SignedAmount
+            FROM dbo.StudentFeeLedger
+            WHERE StudentId = @StudentId
+             -- AND AcademicYear = @AcademicYear
+              --AND TermId = @TermId
+        ),
+        Running AS (
+            SELECT 
+                LedgerId,
+                SUM(SignedAmount) OVER (ORDER BY LedgerId ROWS UNBOUNDED PRECEDING) AS RunningBalance
+            FROM LedgerOrdered
+        )
+        UPDATE l
+        SET Balance = r.RunningBalance
+        FROM dbo.StudentFeeLedger l
+        INNER JOIN Running r ON l.LedgerId = r.LedgerId
+        WHERE l.StudentId = @StudentId
+          AND l.AcademicYear = @AcademicYear
+          AND l.TermId = @TermId;
+
+        COMMIT TRAN;
+        RETURN @Inserted;
+
+    END TRY
+    BEGIN CATCH
+        IF XACT_STATE() <> 0 ROLLBACK TRAN;
+        THROW;
+    END CATCH
 END
 GO
 
@@ -483,12 +539,12 @@ BEGIN
 END
 GO
 
-CREATE OR ALTER PROCEDURE InsertStudentFeeLedgerEntry
+Create or ALTER PROCEDURE dbo.InsertStudentFeeLedgerEntry
     @StudentId INT,
     @AcademicYear NVARCHAR(15),
     @TermId INT,
     @HeadId INT = NULL,
-    @EntryType NVARCHAR(10), -- Debit/Credit
+    @EntryType NVARCHAR(10), -- 'Debit' or 'Credit'
     @Amount DECIMAL(18,2),
     @Narration NVARCHAR(500) = NULL,
     @ReceiptId INT = NULL,
@@ -496,13 +552,91 @@ CREATE OR ALTER PROCEDURE InsertStudentFeeLedgerEntry
 AS
 BEGIN
     SET NOCOUNT ON;
+    SET XACT_ABORT ON;
 
-    INSERT INTO dbo.StudentFeeLedger (StudentId, AcademicYear, TermId, HeadId, EntryType, Amount, Narration, ReceiptId, EntryDate)
-    VALUES (@StudentId, @AcademicYear, @TermId, @HeadId, @EntryType, @Amount, @Narration, @ReceiptId, @EntryDate);
+    BEGIN TRY
+        BEGIN TRAN;
 
-    RETURN CONVERT(INT, SCOPE_IDENTITY());
-END
+        -- 1?? Insert the ledger entry (Balance will be filled after calculation)
+        INSERT INTO dbo.StudentFeeLedger (
+            StudentId,
+            AcademicYear,
+            TermId,
+            HeadId,
+            EntryType,
+            Amount,
+            Narration,
+            ReceiptId,
+            EntryDate,
+            CreatedAtUtc,
+            Balance
+        )
+        VALUES (
+            @StudentId,
+            @AcademicYear,
+            @TermId,
+            @HeadId,
+            @EntryType,
+            @Amount,
+            @Narration,
+            @ReceiptId,
+            @EntryDate,
+            SYSUTCDATETIME(),
+            NULL
+        );
+
+        DECLARE @LedgerId INT = CONVERT(INT, SCOPE_IDENTITY());
+        DECLARE @TotalDebit DECIMAL(18,2) = 0;
+        DECLARE @TotalCredit DECIMAL(18,2) = 0;
+
+        -- 2?? Use a table variable to capture GetStudentFeeBalance result
+        DECLARE @BalanceResult TABLE (
+            StudentId INT,
+            AcademicYear NVARCHAR(15),
+            TermId INT,
+            TotalDebit DECIMAL(18,2),
+            TotalCredit DECIMAL(18,2)
+        );
+
+        INSERT INTO @BalanceResult
+        EXEC dbo.GetStudentFeeBalance
+            @StudentId = @StudentId,
+            @AcademicYear = @AcademicYear,
+            @TermId = @TermId;
+
+        SELECT TOP (1)
+            @TotalDebit = ISNULL(TotalDebit, 0),
+            @TotalCredit = ISNULL(TotalCredit, 0)
+        FROM @BalanceResult;
+
+        DECLARE @Balance DECIMAL(18,2) = @TotalCredit - @TotalDebit;
+
+        -- 3?? Update the same ledger row with the computed balance
+        UPDATE dbo.StudentFeeLedger
+        SET Balance = @Balance
+        WHERE LedgerId = @LedgerId;
+
+        COMMIT TRAN;
+
+        -- Optional: also show info if you run it manually
+        SELECT @LedgerId AS InsertedLedgerId, @Balance AS CurrentBalance;
+
+        RETURN CONVERT(INT, @LedgerId);
+    END TRY
+    BEGIN CATCH
+        IF XACT_STATE() <> 0
+            ROLLBACK TRAN;
+
+        DECLARE @ErrorMessage NVARCHAR(4000) = ERROR_MESSAGE();
+        DECLARE @ErrorSeverity INT = ERROR_SEVERITY();
+        DECLARE @ErrorState INT = ERROR_STATE();
+
+        RAISERROR (@ErrorMessage, @ErrorSeverity, @ErrorState);
+        RETURN -1; -- optional error indicator
+    END CATCH
+END;
 GO
+
 
 CREATE OR ALTER PROCEDURE GetFeeReceiptById
     @ReceiptId INT
@@ -1029,5 +1163,147 @@ BEGIN
       AND (@TermId IS NULL OR TermId=@TermId)
       AND (@Type IS NULL OR Type=@Type)
     ORDER BY EntryDate DESC, AdjustmentId DESC;
+END
+GO
+
+
+
+CREATE TABLE dbo.PaymentGatewayOrders
+(
+    OrderId INT IDENTITY(1,1) PRIMARY KEY,
+    OrderNo NVARCHAR(50) NOT NULL,
+    GatewayName NVARCHAR(50) NOT NULL,
+    StudentId INT NOT NULL,
+    AcademicYear NVARCHAR(15) NOT NULL,
+    TermId INT NOT NULL,
+    Amount DECIMAL(18,2) NOT NULL,
+    Currency NVARCHAR(10) NOT NULL,
+    Status NVARCHAR(20) NOT NULL, -- Initiated/Pending/Success/Failed/Cancelled
+    GatewayOrderId NVARCHAR(100) NULL,
+    PaymentId NVARCHAR(100) NULL,
+    PaymentMode NVARCHAR(30) NULL,
+    ReferenceNo NVARCHAR(100) NULL,
+    ReturnUrl NVARCHAR(500) NULL,
+    CallbackUrl NVARCHAR(500) NULL,
+    ItemsJson NVARCHAR(MAX) NOT NULL,
+    ReceiptId INT NULL,
+    CreatedAtUtc DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+    UpdatedAtUtc DATETIME2 NULL,
+    CONSTRAINT UX_PGO_OrderNo UNIQUE (OrderNo),
+    CONSTRAINT FK_PGO_Student FOREIGN KEY (StudentId) REFERENCES dbo.Students(StudentId),
+    CONSTRAINT FK_PGO_Term FOREIGN KEY (TermId) REFERENCES dbo.FeeTerms(TermId)
+);
+CREATE INDEX IX_PGO_Student ON dbo.PaymentGatewayOrders(StudentId, AcademicYear, TermId);
+GO
+
+CREATE TABLE dbo.PaymentGatewayEvents
+(
+    EventId INT IDENTITY(1,1) PRIMARY KEY,
+    OrderId INT NOT NULL,
+    EventType NVARCHAR(50) NOT NULL,
+    Payload NVARCHAR(MAX) NOT NULL,
+    CreatedAtUtc DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+    CONSTRAINT FK_PGE_Order FOREIGN KEY (OrderId) REFERENCES dbo.PaymentGatewayOrders(OrderId) ON DELETE CASCADE
+);
+CREATE INDEX IX_PGE_Order ON dbo.PaymentGatewayEvents(OrderId, EventType, CreatedAtUtc DESC);
+GO
+
+CREATE OR ALTER PROCEDURE CreatePaymentOrder
+    @GatewayName NVARCHAR(50),
+    @StudentId INT,
+    @AcademicYear NVARCHAR(15),
+    @TermId INT,
+    @Amount DECIMAL(18,2),
+    @Currency NVARCHAR(10),
+    @ReturnUrl NVARCHAR(500) = NULL,
+    @CallbackUrl NVARCHAR(500) = NULL,
+    @ItemsJson NVARCHAR(MAX)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    INSERT INTO dbo.PaymentGatewayOrders
+    (OrderNo, GatewayName, StudentId, AcademicYear, TermId, Amount, Currency, Status, ReturnUrl, CallbackUrl, ItemsJson)
+    VALUES ('', @GatewayName, @StudentId, @AcademicYear, @TermId, @Amount, @Currency, 'Initiated', @ReturnUrl, @CallbackUrl, @ItemsJson);
+
+    DECLARE @OrderId INT = CONVERT(INT, SCOPE_IDENTITY());
+    DECLARE @OrderNo NVARCHAR(50) = CONCAT('PG-', CONVERT(CHAR(8), GETDATE(), 112), '-', RIGHT('000000' + CAST(@OrderId AS VARCHAR(6)), 6));
+
+    UPDATE dbo.PaymentGatewayOrders SET OrderNo = @OrderNo WHERE OrderId = @OrderId;
+
+    RETURN @OrderId;
+END
+GO
+
+CREATE OR ALTER PROCEDURE UpdatePaymentOrderStatus
+    @OrderId INT,
+    @Status NVARCHAR(20),
+    @PaymentId NVARCHAR(100) = NULL,
+    @GatewayOrderId NVARCHAR(100) = NULL,
+    @ReferenceNo NVARCHAR(100) = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    UPDATE dbo.PaymentGatewayOrders
+    SET Status = @Status,
+        PaymentId = COALESCE(@PaymentId, PaymentId),
+        GatewayOrderId = COALESCE(@GatewayOrderId, GatewayOrderId),
+        ReferenceNo = COALESCE(@ReferenceNo, ReferenceNo),
+        UpdatedAtUtc = SYSUTCDATETIME()
+    WHERE OrderId = @OrderId;
+
+    RETURN @OrderId;
+END
+GO
+
+CREATE OR ALTER PROCEDURE GetPaymentOrderByOrderNo
+    @OrderNo NVARCHAR(50)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT TOP 1 * FROM dbo.PaymentGatewayOrders WHERE OrderNo = @OrderNo;
+END
+GO
+
+CREATE OR ALTER PROCEDURE MarkPaymentOrderReceipted
+    @OrderId INT,
+    @ReceiptId INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    UPDATE dbo.PaymentGatewayOrders
+    SET ReceiptId = @ReceiptId,
+        UpdatedAtUtc = SYSUTCDATETIME()
+    WHERE OrderId = @OrderId;
+
+    RETURN @OrderId;
+END
+GO
+
+
+CREATE OR ALTER PROCEDURE InsertPaymentGatewayEvent
+    @OrderId INT,
+    @EventType NVARCHAR(50),
+    @Payload NVARCHAR(MAX)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    INSERT INTO dbo.PaymentGatewayEvents (OrderId, EventType, Payload)
+    VALUES (@OrderId, @EventType, @Payload);
+
+    RETURN CONVERT(INT, SCOPE_IDENTITY());
+END
+GO
+
+
+CREATE OR ALTER PROCEDURE GetPaymentOrderByGatewayOrderId
+    @GatewayOrderId NVARCHAR(100)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT TOP 1 * FROM dbo.PaymentGatewayOrders WHERE GatewayOrderId = @GatewayOrderId;
 END
 GO
