@@ -68,6 +68,7 @@ namespace SMS.Application.Interfaces
         Task<int> CreatePaymentOrderAsync(CancellationToken token, PaymentGatewayOrder order);
         Task<int> UpdatePaymentOrderStatusAsync(CancellationToken token, int orderId, string status, string? paymentId, string? gatewayOrderId, string? referenceNo);
         Task<PaymentGatewayOrder?> GetPaymentOrderByOrderNoAsync(CancellationToken token, string orderNo);
+        Task<PaymentGatewayOrder?> GetPaymentOrderByOrderIdAsync(CancellationToken token, int orderNo);
         Task<int> MarkPaymentOrderReceiptedAsync(CancellationToken token, int orderId, int receiptId);
         Task<int> InsertPaymentGatewayEventAsync(CancellationToken token, PaymentGatewayEvent ev);
 

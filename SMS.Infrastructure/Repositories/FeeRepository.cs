@@ -540,6 +540,14 @@ namespace SMS.Infrastructure.Repositories
             };
             return _db.ExecuteSpSingleAsync<PaymentGatewayOrder>(token, "GetPaymentOrderByOrderNo", p);
         }
+        public Task<PaymentGatewayOrder?> GetPaymentOrderByOrderIdAsync(CancellationToken token, int orderId)
+        {
+            var p = new List<ParametersCollection>
+            {
+                new() { ParameterName = "@OrderId", ParameterValue = orderId, ParameterType = DbType.String, ParameterDirection = ParameterDirection.Input }
+            };
+            return _db.ExecuteSpSingleAsync<PaymentGatewayOrder>(token, "GetPaymentOrderByOrderId", p);
+        }
 
         public async Task<int> MarkPaymentOrderReceiptedAsync(CancellationToken token, int orderId, int receiptId)
         {

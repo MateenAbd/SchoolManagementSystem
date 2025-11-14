@@ -1,7 +1,7 @@
 ﻿// wwwroot/js/script/fee.js
-// Complete module for Fee Management UI
-// Assumes jQuery and Bootstrap are loaded.
-// If showAlert/clearAlert are not present (from common.js), lightweight fallbacks are provided below.
+// PART 1/2
+// Covers: Fee Heads, Fee Terms, Fee Structures (headers + details), Demand & Collection (generate + collect)
+// Requires common.js (BASE_URL, $.ajaxSetup, showAlert, clearAlert)
 
 (function () {
     "use strict";
@@ -14,29 +14,7 @@
         const isTeacher = roles.includes("Teacher");
         if (!(isAdmin || isTeacher)) return;
 
-        // ------------------------------------------------------------
-        // Polyfills for showAlert / clearAlert (if not provided)
-        // ------------------------------------------------------------
-        if (typeof window.showAlert !== "function") {
-            window.showAlert = function (selector, type, html) {
-                const $el = $(selector);
-                if ($el.length === 0) return;
-                $el.removeClass("d-none alert-primary alert-secondary alert-success alert-danger alert-warning alert-info alert-light alert-dark")
-                    .addClass("alert alert-" + (type || "info"))
-                    .html(html || "");
-            };
-        }
-        if (typeof window.clearAlert !== "function") {
-            window.clearAlert = function (selector) {
-                const $el = $(selector);
-                if ($el.length === 0) return;
-                $el.addClass("d-none").removeClass("alert alert-primary alert-secondary alert-success alert-danger alert-warning alert-info alert-light alert-dark").empty();
-            };
-        }
-
-        // ------------------------------------------------------------
-        // Utilities
-        // ------------------------------------------------------------
+        // ---------------- Utilities ----------------
         function parseError(xhr) {
             if (xhr.responseJSON?.errors) return xhr.responseJSON.errors.join("<br/>");
             if (xhr.responseJSON?.error) return xhr.responseJSON.error;
@@ -47,57 +25,28 @@
             const dt = new Date(d);
             return isNaN(dt) ? "-" : dt.toLocaleDateString();
         }
-        function toLocalDateTime(d) {
-            if (!d) return "-";
-            const dt = new Date(d);
-            return isNaN(dt) ? "-" : dt.toLocaleString();
-        }
-        function todayStr() {
-            const t = new Date();
-            return t.toISOString().substring(0, 10);
-        }
-        function fmt(num) {
-            return (Number(num || 0)).toFixed(2);
-        }
+        function todayStr() { const t = new Date(); return t.toISOString().substring(0, 10); }
+        function fmt(num) { return (Number(num || 0)).toFixed(2); }
 
-        // ------------------------------------------------------------
         // Caches
-        // ------------------------------------------------------------
         let feeHeadsCache = [];
         let feeTermsCache = [];
-        let fineRulesCache = [];
-        let schemesCache = [];
-        let scholarshipsCache = [];
-        let structuresCache = [];
-        window.feeHeadsCache = feeHeadsCache; // expose if needed elsewhere
 
-        // ------------------------------------------------------------
-        // Helpers for dropdowns
-        // ------------------------------------------------------------
+        // Fill selects
         function fillHeadsSelect($sel, includeAny = true) {
             const opts = [];
             if (includeAny) opts.push(`<option value="">Any</option>`);
-            feeHeadsCache
-                .slice()
-                .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
-                .forEach(h => {
-                    opts.push(`<option value="${h.headId}">${h.headCode} - ${h.headName}</option>`);
-                });
+            feeHeadsCache.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)).forEach(h => {
+                opts.push(`<option value="${h.headId}">${h.headCode} - ${h.headName}</option>`);
+            });
             $sel.html(opts.join(""));
         }
         function fillHeadsSelectStrict($sel) {
             const opts = [`<option value="">Select</option>`];
-            feeHeadsCache
-                .slice()
-                .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
-                .forEach(h => {
-                    opts.push(`<option value="${h.headId}">${h.headCode} - ${h.headName}</option>`);
-                });
+            feeHeadsCache.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)).forEach(h => {
+                opts.push(`<option value="${h.headId}">${h.headCode} - ${h.headName}</option>`);
+            });
             $sel.html(opts.join(""));
-        }
-        function headNameById(id) {
-            const h = (feeHeadsCache || []).find(x => x.headId === id);
-            return h ? (h.headCode + " - " + h.headName) : (id ?? "");
         }
         function termNameById(id) {
             const t = feeTermsCache.find(x => x.termId === id);
@@ -114,8 +63,10 @@
             })
                 .done(list => {
                     feeHeadsCache = Array.isArray(list) ? list : [];
-                    // populate head selects used as templates
-                    fillHeadsSelectStrict($("#fsHeadSelectTemplate")); // hidden template element for structures
+                    // populate head selects used in structures and collection
+                    fillHeadsSelectStrict($("#fsHeadSelectTemplate")); // hidden template element
+                    // expose globally if needed by Part 2 (optional)
+                    // window.feeHeadsCache = feeHeadsCache;
                 })
                 .always(() => cb && cb());
         }
@@ -130,163 +81,170 @@
                     feeTermsCache = Array.isArray(list) ? list : [];
                     // populate structure term select
                     const opts = [`<option value="">Select</option>`];
-                    feeTermsCache
-                        .slice()
-                        .sort((a, b) => (a.sequenceNo || 0) - (b.sequenceNo || 0))
-                        .forEach(t => {
-                            opts.push(`<option value="${t.termId}">${t.academicYear} - ${t.termCode} - ${t.termName}</option>`);
-                        });
+                    feeTermsCache.sort((a, b) => (a.sequenceNo || 0) - (b.sequenceNo || 0)).forEach(t => {
+                        opts.push(`<option value="${t.termId}">${t.academicYear} - ${t.termCode} - ${t.termName}</option>`);
+                    });
                     $("#fsTerm").html(opts.join(""));
                 })
                 .always(() => cb && cb());
         }
 
-        // ------------------------------------------------------------
-        // Fee Heads
-        // ------------------------------------------------------------
-        let feeHeadsListCache = [];
+        // =========================================================================
+        // FEE HEADS
+        // =========================================================================
+        const fhModal = new bootstrap.Modal(document.getElementById("fhModal"), { backdrop: "static" });
 
-        function renderFeeHeads(list) {
+        function renderHeads(list) {
             const $tb = $("#fhTable tbody");
             if (!Array.isArray(list) || list.length === 0) {
-                $tb.html(`<tr><td colspan="6" class="p-3 text-center text-muted">No data</td></tr>`);
+                $tb.html(`<tr><td colspan="7" class="p-3 text-center text-muted">No data</td></tr>`);
                 return;
             }
-            feeHeadsListCache = list;
-            const rows = list.map(h => `
+            const rows = list.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)).map(h => `
         <tr data-id="${h.headId}">
           <td>${h.headId}</td>
-          <td>${h.headCode || ""}</td>
-          <td>${h.headName || ""}</td>
+          <td>${h.headCode}</td>
+          <td>${h.headName}</td>
           <td>${h.sortOrder ?? ""}</td>
+          <td>${h.description || ""}</td>
           <td>${h.isActive ? "Yes" : "No"}</td>
           <td>
             <div class="btn-group btn-group-sm">
               <button class="btn btn-outline-primary btn-fh-edit">Edit</button>
+              ${isAdmin ? `<button class="btn btn-outline-danger btn-fh-del">Delete</button>` : ``}
             </div>
           </td>
         </tr>
       `).join("");
             $tb.html(rows);
         }
-
         function loadFeeHeads() {
             clearAlert("#fhMsg");
-            const isActive = $("#fhActiveFilter").val() || "";
-            $("#fhTable tbody").html(`<tr><td colspan="6" class="p-3 text-center text-muted">Loading...</td></tr>`);
+            const isActive = $("#fhFilterActive").val() || "";
+            $("#fhTable tbody").html(`<tr><td colspan="7" class="p-3 text-center text-muted">Loading...</td></tr>`);
             $.ajax({
                 url: "/Fee/GetFeeHeadList",
                 type: "GET",
                 dataType: "json",
                 data: { isActive }
             })
-                .done(list => {
-                    renderFeeHeads(list);
-                    // also refresh head cache for selects
-                    feeHeadsCache = Array.isArray(list) ? list : [];
-                    fillHeadsSelectStrict($("#fsHeadSelectTemplate"));
-                })
+                .done(list => { renderHeads(list); feeHeadsCache = Array.isArray(list) ? list : []; })
                 .fail(xhr => showAlert("#fhMsg", "danger", parseError(xhr)));
         }
-
-        const fhModal = new bootstrap.Modal(document.getElementById("fhModal"), { backdrop: "static" });
         function openHeadModal(headId) {
             clearAlert("#fhFormMsg");
             $("#fhModalLabel").text(headId ? "Edit Fee Head" : "New Fee Head");
             $("#fhId").val(headId || 0);
             $("#fhCode,#fhName,#fhSort,#fhDesc").val("");
             $("#fhActive").val("true");
-
             if (headId && headId > 0) {
-                const h = feeHeadsListCache.find(x => x.headId === headId);
-                if (h) {
-                    $("#fhCode").val(h.headCode || "");
-                    $("#fhName").val(h.headName || "");
-                    $("#fhSort").val(h.sortOrder ?? "");
-                    $("#fhActive").val(h.isActive ? "true" : "false");
-                    $("#fhDesc").val(h.description || "");
-                }
-            }
-            fhModal.show();
+                $.ajax({
+                    url: "/Fee/GetFeeHeadById",
+                    type: "GET",
+                    dataType: "json",
+                    data: { headId }
+                })
+                    .done(h => {
+                        $("#fhId").val(h.headId);
+                        $("#fhCode").val(h.headCode);
+                        $("#fhName").val(h.headName);
+                        $("#fhSort").val(h.sortOrder ?? "");
+                        $("#fhDesc").val(h.description || "");
+                        $("#fhActive").val(h.isActive ? "true" : "false");
+                    })
+                    .fail(xhr => showAlert("#fhFormMsg", "danger", parseError(xhr)))
+                    .always(() => fhModal.show());
+            } else { fhModal.show(); }
         }
-
-        function saveFeeHead() {
+        function saveHead() {
             clearAlert("#fhFormMsg");
             const dto = {
                 headId: parseInt($("#fhId").val(), 10) || 0,
                 headCode: $("#fhCode").val().trim(),
                 headName: $("#fhName").val().trim(),
-                sortOrder: $("#fhSort").val() ? parseInt($("#fhSort").val(), 10) : 0,
-                isActive: $("#fhActive").val() === "true",
-                description: $("#fhDesc").val().trim() || null
+                description: $("#fhDesc").val().trim() || null,
+                sortOrder: $("#fhSort").val() ? parseInt($("#fhSort").val(), 10) : null,
+                isActive: $("#fhActive").val() === "true"
             };
             if (!dto.headCode || !dto.headName) {
-                showAlert("#fhFormMsg", "warning", "Head Code and Head Name are required.");
+                showAlert("#fhFormMsg", "warning", "Head Code and Name are required.");
                 return;
             }
             const $btn = $("#btnSaveFeeHead").prop("disabled", true).text("Saving...");
+            const req = dto.headId > 0
+                ? $.ajax({ url: "/Fee/UpdateFeeHead", type: "POST", dataType: "json", contentType: "application/json; charset=UTF-8", data: JSON.stringify(dto) })
+                : $.ajax({ url: "/Fee/CreateFeeHead", type: "POST", dataType: "json", contentType: "application/json; charset=UTF-8", data: JSON.stringify(dto) });
+            req.done(res => {
+                if (res?.success) {
+                    fhModal.hide();
+                    showAlert("#fhMsg", "success", "Saved.");
+                    loadFeeHeads();
+                    loadHeadsForOptions(); // refresh for other tabs
+                } else {
+                    showAlert("#fhFormMsg", "warning", "Save failed.");
+                }
+            }).fail(xhr => showAlert("#fhFormMsg", "danger", parseError(xhr)))
+                .always(() => $btn.prop("disabled", false).text("Save"));
+        }
+        function deleteHead(headId) {
             $.ajax({
-                url: "/Fee/UpsertFeeHead",
+                url: "/Fee/DeleteFeeHead",
                 type: "POST",
                 dataType: "json",
                 contentType: "application/json; charset=UTF-8",
-                data: JSON.stringify(dto)
+                data: JSON.stringify(headId)
             })
                 .done(res => {
                     if (res?.success) {
-                        fhModal.hide();
-                        showAlert("#fhMsg", "success", "Saved.");
-                        loadFeeHeads();
+                        showAlert("#fhMsg", "success", "Deleted.");
+                        loadFeeHeads(); loadHeadsForOptions();
                     } else {
-                        showAlert("#fhFormMsg", "warning", "Save failed.");
+                        showAlert("#fhMsg", "warning", "Delete failed.");
                     }
                 })
-                .fail(xhr => showAlert("#fhFormMsg", "danger", parseError(xhr)))
-                .always(() => $btn.prop("disabled", false).text("Save"));
+                .fail(xhr => showAlert("#fhMsg", "danger", parseError(xhr)));
         }
 
-        $("#btnLoadFeeHeads, #btnSearchFeeHeads").on("click", loadFeeHeads);
+        $("#btnLoadFeeHeads").on("click", loadFeeHeads);
         $("#btnNewFeeHead").on("click", () => openHeadModal(0));
-        $(document).on("click", ".btn-fh-edit", function () {
-            const id = parseInt($(this).closest("tr").data("id"), 10);
-            if (id) openHeadModal(id);
-        });
-        $("#btnSaveFeeHead").on("click", saveFeeHead);
+        $(document).on("click", ".btn-fh-edit", function () { const id = parseInt($(this).closest("tr").data("id"), 10); if (id) openHeadModal(id); });
+        $(document).on("click", ".btn-fh-del", function () { const id = parseInt($(this).closest("tr").data("id"), 10); if (!id) return; if (!confirm("Delete head " + id + " ?")) return; deleteHead(id); });
+        $("#btnSaveFeeHead").on("click", saveHead);
 
-        // ------------------------------------------------------------
-        // Fee Terms
-        // ------------------------------------------------------------
-        function renderFeeTerms(list) {
+        // =========================================================================
+        // FEE TERMS
+        // =========================================================================
+        const ftModal = new bootstrap.Modal(document.getElementById("ftModal"), { backdrop: "static" });
+
+        function renderTerms(list) {
             const $tb = $("#ftTable tbody");
             if (!Array.isArray(list) || list.length === 0) {
                 $tb.html(`<tr><td colspan="8" class="p-3 text-center text-muted">No data</td></tr>`);
                 return;
             }
-            feeTermsCache = list; // refresh cache for termNameById
-            const rows = list.map(t => `
+            const rows = list.sort((a, b) => (a.sequenceNo || 0) - (b.sequenceNo || 0)).map(t => `
         <tr data-id="${t.termId}">
           <td>${t.termId}</td>
-          <td>${t.academicYear || ""}</td>
-          <td>${t.termCode || ""}</td>
-          <td>${t.termName || ""}</td>
-          <td>${t.sequenceNo ?? ""}</td>
+          <td>${t.academicYear}</td>
+          <td>${t.termCode}</td>
+          <td>${t.termName}</td>
+          <td>${t.sequenceNo}</td>
           <td>${toLocalDate(t.dueDate)}</td>
           <td>${t.isActive ? "Yes" : "No"}</td>
           <td>
             <div class="btn-group btn-group-sm">
               <button class="btn btn-outline-primary btn-ft-edit">Edit</button>
+              ${isAdmin ? `<button class="btn btn-outline-danger btn-ft-del">Delete</button>` : ``}
             </div>
           </td>
         </tr>
       `).join("");
             $tb.html(rows);
         }
-
         function loadFeeTerms() {
-            
             clearAlert("#ftMsg");
-            const academicYear = $("#ftSearchAy").val().trim() || null;
-            const isActive = $("#ftSearchActive").val().trim() || "";
+            const academicYear = $("#ftFilterYear").val().trim() || "";
+            const isActive = $("#ftFilterActive").val() || "";
             $("#ftTable tbody").html(`<tr><td colspan="8" class="p-3 text-center text-muted">Loading...</td></tr>`);
             $.ajax({
                 url: "/Fee/GetFeeTermList",
@@ -294,32 +252,35 @@
                 dataType: "json",
                 data: { academicYear, isActive }
             })
-                .done(renderFeeTerms)
+                .done(list => { renderTerms(list); feeTermsCache = Array.isArray(list) ? list : []; })
                 .fail(xhr => showAlert("#ftMsg", "danger", parseError(xhr)));
         }
-
-        const ftModal = new bootstrap.Modal(document.getElementById("ftModal"), { backdrop: "static" });
         function openTermModal(termId) {
             clearAlert("#ftFormMsg");
             $("#ftModalLabel").text(termId ? "Edit Fee Term" : "New Fee Term");
             $("#ftId").val(termId || 0);
             $("#ftYear,#ftCode,#ftName,#ftSeq,#ftDue").val("");
             $("#ftActive").val("true");
-
             if (termId && termId > 0) {
-                const t = feeTermsCache.find(x => x.termId === termId);
-                if (t) {
-                    $("#ftYear").val(t.academicYear || "");
-                    $("#ftCode").val(t.termCode || "");
-                    $("#ftName").val(t.termName || "");
-                    $("#ftSeq").val(t.sequenceNo ?? "");
-                    $("#ftDue").val(t.dueDate ? (new Date(t.dueDate).toISOString().substring(0, 10)) : "");
-                    $("#ftActive").val(t.isActive ? "true" : "false");
-                }
-            }
-            ftModal.show();
+                $.ajax({
+                    url: "/Fee/GetFeeTermById",
+                    type: "GET",
+                    dataType: "json",
+                    data: { termId }
+                })
+                    .done(t => {
+                        $("#ftId").val(t.termId);
+                        $("#ftYear").val(t.academicYear || "");
+                        $("#ftCode").val(t.termCode || "");
+                        $("#ftName").val(t.termName || "");
+                        $("#ftSeq").val(t.sequenceNo ?? "");
+                        if (t.dueDate) $("#ftDue").val(new Date(t.dueDate).toISOString().substring(0, 10));
+                        $("#ftActive").val(t.isActive ? "true" : "false");
+                    })
+                    .fail(xhr => showAlert("#ftFormMsg", "danger", parseError(xhr)))
+                    .always(() => ftModal.show());
+            } else { ftModal.show(); }
         }
-
         function saveTerm() {
             clearAlert("#ftFormMsg");
             const dto = {
@@ -336,60 +297,66 @@
                 return;
             }
             const $btn = $("#btnSaveFeeTerm").prop("disabled", true).text("Saving...");
+            const req = dto.termId > 0
+                ? $.ajax({ url: "/Fee/UpdateFeeTerm", type: "POST", dataType: "json", contentType: "application/json; charset=UTF-8", data: JSON.stringify(dto) })
+                : $.ajax({ url: "/Fee/CreateFeeTerm", type: "POST", dataType: "json", contentType: "application/json; charset=UTF-8", data: JSON.stringify(dto) });
+            req.done(res => {
+                if (res?.success) {
+                    ftModal.hide();
+                    showAlert("#ftMsg", "success", "Saved.");
+                    loadFeeTerms();
+                    loadTermsForOptions(); // refresh structure term select
+                } else {
+                    showAlert("#ftFormMsg", "warning", "Save failed.");
+                }
+            }).fail(xhr => showAlert("#ftFormMsg", "danger", parseError(xhr)))
+                .always(() => $btn.prop("disabled", false).text("Save"));
+        }
+        function deleteTerm(termId) {
             $.ajax({
-                url: "/Fee/UpsertFeeTerm",
+                url: "/Fee/DeleteFeeTerm",
                 type: "POST",
                 dataType: "json",
                 contentType: "application/json; charset=UTF-8",
-                data: JSON.stringify(dto)
+                data: JSON.stringify(termId)
             })
                 .done(res => {
-                    if (res?.success) {
-                        ftModal.hide();
-                        showAlert("#ftMsg", "success", "Saved.");
-                        loadFeeTerms();
-                        // reload for dropdowns
-                        loadTermsForOptions();
-                    } else {
-                        showAlert("#ftFormMsg", "warning", "Save failed.");
-                    }
+                    if (res?.success) { showAlert("#ftMsg", "success", "Deleted."); loadFeeTerms(); loadTermsForOptions(); }
+                    else showAlert("#ftMsg", "warning", "Delete failed.");
                 })
-                .fail(xhr => showAlert("#ftFormMsg", "danger", parseError(xhr)))
-                .always(() => $btn.prop("disabled", false).text("Save"));
+                .fail(xhr => showAlert("#ftMsg", "danger", parseError(xhr)));
         }
 
-        $("#btnLoadFeeTerms, #btnSearchFeeTerms").on("click", loadFeeTerms);
+        $("#btnLoadFeeTerms").on("click", loadFeeTerms);
         $("#btnNewFeeTerm").on("click", () => openTermModal(0));
-        $(document).on("click", ".btn-ft-edit", function () {
-            const id = parseInt($(this).closest("tr").data("id"), 10);
-            if (id) openTermModal(id);
-        });
+        $(document).on("click", ".btn-ft-edit", function () { const id = parseInt($(this).closest("tr").data("id"), 10); if (id) openTermModal(id); });
+        $(document).on("click", ".btn-ft-del", function () { const id = parseInt($(this).closest("tr").data("id"), 10); if (!id) return; if (!confirm("Delete term " + id + " ?")) return; deleteTerm(id); });
         $("#btnSaveFeeTerm").on("click", saveTerm);
 
-        // ------------------------------------------------------------
-        // Fee Structures
-        // ------------------------------------------------------------
+        // =========================================================================
+        // FEE STRUCTURES (headers + details)
+        // =========================================================================
         const fsModal = new bootstrap.Modal(document.getElementById("fsModal"), { backdrop: "static" });
+        let fsDetailRowSeq = 0;
 
         function renderStructures(list) {
             const $tb = $("#fsTable tbody");
             if (!Array.isArray(list) || list.length === 0) {
-                $tb.html(`<tr><td colspan="8" class="p-3 text-center text-muted">No data</td></tr>`);
+                $tb.html(`<tr><td colspan="7" class="p-3 text-center text-muted">No data</td></tr>`);
                 return;
             }
-            structuresCache = list;
             const rows = list.map(s => `
         <tr data-id="${s.structureId}">
           <td>${s.structureId}</td>
-          <td>${s.academicYear || ""}</td>
-          <td>${s.className || ""}</td>
-          <td>${s.section || ""}</td>
-          <td>${s.termId ?? ""}</td>
-          <td>${s.isActive ? "Yes" : "No"}</td>
+          <td>${s.academicYear}</td>
+          <td>${s.className}${s.section ? ("-" + s.section) : ""}</td>
+          <td>${termNameById(s.termId)}</td>
           <td>${toLocalDate(s.effectiveFrom)}</td>
+          <td>${s.isActive ? "Yes" : "No"}</td>
           <td>
             <div class="btn-group btn-group-sm">
               <button class="btn btn-outline-primary btn-fs-edit">Edit</button>
+              ${isAdmin ? `<button class="btn btn-outline-danger btn-fs-del">Delete</button>` : ``}
             </div>
           </td>
         </tr>
@@ -398,12 +365,11 @@
         }
 
         function searchStructures() {
-            
             clearAlert("#fsMsg");
             const q = {
-                academicYear: $("#fsFilterYear").val() || null,
-                className: $("#fsFilterClass").val() || null,
-                section: $("#fsFilterSection").val() || null,
+                academicYear: $("#fsFilterYear").val().trim() || null,
+                className: $("#fsFilterClass").val().trim() || null,
+                section: $("#fsFilterSection").val().trim() || null,
                 termId: $("#fsFilterTerm").val() ? parseInt($("#fsFilterTerm").val(), 10) : null,
                 isActive: $("#fsFilterActive").val() || null
             };
@@ -418,29 +384,6 @@
                 .fail(xhr => showAlert("#fsMsg", "danger", parseError(xhr)));
         }
 
-        function fsRenderEmptyDetails() {
-            $("#fsDetailsTable tbody").html(`<tr><td colspan="4" class="p-3 text-center text-muted">No rows</td></tr>`);
-        }
-
-        function fsAddRow(headId, amount) {
-            const $tpl = $("#fsHeadSelectTemplate").clone();
-            $tpl.removeClass("d-none").removeAttr("id").addClass("form-select form-select-sm fs-head");
-            if (headId) $tpl.val(String(headId));
-            const row = `
-        <tr>
-          <td></td>
-          <td></td>
-          <td><input type="number" step="0.01" class="form-control form-control-sm fs-amount" value="${amount ?? ""}" /></td>
-          <td><button class="btn btn-sm btn-outline-danger btn-fs-del-row">Remove</button></td>
-        </tr>
-      `;
-            const $tb = $("#fsDetailsTable tbody");
-            if ($tb.find("tr td").length === 1) $tb.empty();
-            const $row = $(row);
-            $tb.append($row);
-            $tb.find("tr:last-child td:nth-child(2)").append($tpl);
-        }
-
         function openStructureModal(structureId) {
             clearAlert("#fsFormMsg");
             $("#fsModalLabel").text(structureId ? "Edit Fee Structure" : "New Fee Structure");
@@ -448,36 +391,67 @@
             $("#fsYear,#fsClass,#fsSection,#fsEffective").val("");
             $("#fsTerm").val("");
             $("#fsActive").val("true");
-            fsRenderEmptyDetails();
+            // reset details table
+            $("#fsDetailsTable tbody").html(`<tr><td colspan="4" class="p-3 text-center text-muted">No rows</td></tr>`);
+            fsDetailRowSeq = 0;
 
             if (structureId && structureId > 0) {
-                const s = structuresCache.find(x => x.structureId === structureId);
-                if (s) {
-                    $("#fsYear").val(s.academicYear || "");
-                    $("#fsClass").val(s.className || "");
-                    $("#fsSection").val(s.section || "");
-                    $("#fsTerm").val(s.termId ?? "");
-                    $("#fsActive").val(s.isActive ? "true" : "false");
-                    $("#fsEffective").val(s.effectiveFrom ? (new Date(s.effectiveFrom).toISOString().substring(0, 10)) : "");
-                }
-                // Load details
                 $.ajax({
-                    url: "/Fee/GetFeeStructureDetails",
+                    url: "/Fee/GetFeeStructureById",
                     type: "GET",
                     dataType: "json",
                     data: { structureId }
                 })
-                    .done(items => {
-                        if (Array.isArray(items) && items.length > 0) {
+                    .done(s => {
+                        $("#fsId").val(s.structureId);
+                        $("#fsYear").val(s.academicYear || "");
+                        $("#fsClass").val(s.className || "");
+                        $("#fsSection").val(s.section || "");
+                        $("#fsTerm").val(s.termId || "");
+                        $("#fsActive").val(s.isActive ? "true" : "false");
+                        if (s.effectiveFrom) $("#fsEffective").val(new Date(s.effectiveFrom).toISOString().substring(0, 10));
+                        if (Array.isArray(s.details) && s.details.length) {
                             $("#fsDetailsTable tbody").empty();
-                            items.forEach(it => fsAddRow(it.headId, it.amount));
-                        } else {
-                            fsRenderEmptyDetails();
+                            s.details.forEach((d, i) => addFsRow(d.headId, d.amount));
                         }
                     })
-                    .fail(() => fsRenderEmptyDetails());
+                    .fail(xhr => showAlert("#fsFormMsg", "danger", parseError(xhr)))
+                    .always(() => fsModal.show());
+            } else {
+                fsModal.show();
             }
-            fsModal.show();
+        }
+
+        function addFsRow(headId, amount) {
+            fsDetailRowSeq++;
+            const idx = fsDetailRowSeq;
+            const headOptions = feeHeadsCache.map(h => `<option value="${h.headId}" ${h.headId === headId ? 'selected' : ''}>${h.headCode} - ${h.headName}</option>`).join("");
+            const row = `
+        <tr data-row="${idx}">
+          <td>${idx}</td>
+          <td>
+            <select class="form-select form-select-sm fs-head">
+              <option value="">Select</option>
+              ${headOptions}
+            </select>
+          </td>
+          <td><input type="number" step="0.01" class="form-control form-control-sm fs-amount" value="${amount ?? ""}" /></td>
+          <td><button class="btn btn-sm btn-outline-danger btn-fs-del-row">Remove</button></td>
+        </tr>
+      `;
+            const $tb = $("#fsDetailsTable tbody");
+            if ($tb.find("tr td").length === 1) $tb.empty();
+            $tb.append(row);
+        }
+
+        function collectFsDetails() {
+            const details = [];
+            $("#fsDetailsTable tbody tr").each(function () {
+                const headId = parseInt($(this).find(".fs-head").val(), 10);
+                const amount = $(this).find(".fs-amount").val() ? parseFloat($(this).find(".fs-amount").val()) : 0;
+                if (headId && amount > 0) details.push({ headId, amount });
+            });
+            return details;
         }
 
         function saveStructure() {
@@ -485,20 +459,19 @@
             const dto = {
                 structureId: parseInt($("#fsId").val(), 10) || 0,
                 academicYear: $("#fsYear").val().trim(),
-                className: $("#fsClass").val().trim() || null,
+                className: $("#fsClass").val().trim(),
                 section: $("#fsSection").val().trim() || null,
-                termId: $("#fsTerm").val() ? parseInt($("#fsTerm").val(), 10) : null,
-                isActive: $("#fsActive").val() === "true",
+                termId: $("#fsTerm").val() ? parseInt($("#fsTerm").val(), 10) : 0,
                 effectiveFrom: $("#fsEffective").val() || null,
-                details: []
+                isActive: $("#fsActive").val() === "true",
+                details: collectFsDetails()
             };
-            $("#fsDetailsTable tbody tr").each(function () {
-                const headId = parseInt($(this).find(".fs-head").val(), 10);
-                const amount = $(this).find(".fs-amount").val() ? parseFloat($(this).find(".fs-amount").val()) : 0;
-                if (headId && amount > 0) dto.details.push({ headId, amount });
-            });
-            if (!dto.academicYear || !dto.className || !dto.termId || dto.details.length === 0) {
-                showAlert("#fsFormMsg", "warning", "AY, Class, Term and at least one detail are required.");
+            if (!dto.academicYear || !dto.className || !dto.termId) {
+                showAlert("#fsFormMsg", "warning", "AY, Class and Term are required.");
+                return;
+            }
+            if (!dto.details.length) {
+                showAlert("#fsFormMsg", "warning", "Add at least one detail row with head and amount.");
                 return;
             }
             const $btn = $("#btnSaveStructure").prop("disabled", true).text("Saving...");
@@ -521,24 +494,80 @@
                 .fail(xhr => showAlert("#fsFormMsg", "danger", parseError(xhr)))
                 .always(() => $btn.prop("disabled", false).text("Save"));
         }
+        function deleteStructure(structureId) {
+            $.ajax({
+                url: "/Fee/DeleteFeeStructure",
+                type: "POST",
+                dataType: "json",
+                contentType: "application/json; charset=UTF-8",
+                data: JSON.stringify(structureId)
+            })
+                .done(res => {
+                    if (res?.success) { showAlert("#fsMsg", "success", "Deleted."); searchStructures(); }
+                    else showAlert("#fsMsg", "warning", "Delete failed.");
+                })
+                .fail(xhr => showAlert("#fsMsg", "danger", parseError(xhr)));
+        }
 
         $("#btnLoadStructures, #btnSearchStructures").on("click", searchStructures);
         $("#btnNewStructure").on("click", () => openStructureModal(0));
-        $(document).on("click", ".btn-fs-edit", function () {
-            const id = parseInt($(this).closest("tr").data("id"), 10);
-            if (id) openStructureModal(id);
-        });
-        $("#btnFsAddRow").on("click", () => fsAddRow(null, null));
-        $(document).on("click", ".btn-fs-del-row", function () {
-            $(this).closest("tr").remove();
-            const $tb = $("#fsDetailsTable tbody");
-            if ($tb.find("tr").length === 0) fsRenderEmptyDetails();
-        });
+        $(document).on("click", ".btn-fs-edit", function () { const id = parseInt($(this).closest("tr").data("id"), 10); if (id) openStructureModal(id); });
+        $(document).on("click", ".btn-fs-del", function () { const id = parseInt($(this).closest("tr").data("id"), 10); if (!id) return; if (!confirm("Delete structure " + id + " ?")) return; deleteStructure(id); });
+        $("#btnFsAddRow").on("click", () => addFsRow(null, null));
+        $(document).on("click", ".btn-fs-del-row", function () { $(this).closest("tr").remove(); const $tb = $("#fsDetailsTable tbody"); if ($tb.find("tr").length === 0) $tb.html(`<tr><td colspan="4" class="p-3 text-center text-muted">No rows</td></tr>`); });
         $("#btnSaveStructure").on("click", saveStructure);
 
-        // ------------------------------------------------------------
-        // Demand & Collection
-        // ------------------------------------------------------------
+        // =========================================================================
+        // DEMAND & COLLECTION
+        // =========================================================================
+        function loadBalanceText() {
+            const studentId = $("#clStudentId").val() ? parseInt($("#clStudentId").val(), 10) : null;
+            const academicYear = $("#clYear").val().trim() || null;
+            const termId = $("#clTerm").val() ? parseInt($("#clTerm").val(), 10) : null;
+            if (!studentId || !academicYear || !termId) { $("#clBalanceText").text("-"); return; }
+            $.ajax({
+                url: "/Fee/GetStudentFeeBalance",
+                type: "GET",
+                dataType: "json",
+                data: { studentId, academicYear, termId }
+            })
+                .done(dto => {
+                    if (!dto) { $("#clBalanceText").text("-"); return; }
+                    const bal = dto.balance ?? dto.Balance ?? null;
+                    $("#clBalanceText").text(bal != null ? fmt(bal) : "-");
+                })
+                .fail(() => $("#clBalanceText").text("-"));
+        }
+        $("#clStudentId, #clYear, #clTerm").on("change input", loadBalanceText);
+
+        $("#btnGenerateDemand").on("click", function () {
+            clearAlert("#gdMsg");
+            const payload = {
+                studentId: $("#gdStudentId").val() ? parseInt($("#gdStudentId").val(), 10) : 0,
+                academicYear: $("#gdYear").val().trim(),
+                termId: $("#gdTerm").val() ? parseInt($("#gdTerm").val(), 10) : 0
+            };
+            if (!payload.studentId || !payload.academicYear || !payload.termId) {
+                showAlert("#gdMsg", "warning", "Student ID, AY and Term are required.");
+                return;
+            }
+            const $btn = $(this).prop("disabled", true).text("Posting...");
+            $.ajax({
+                url: "/Fee/GenerateStudentTermFee",
+                type: "POST",
+                dataType: "json",
+                contentType: "application/json; charset=UTF-8",
+                data: JSON.stringify(payload)
+            })
+                .done(res => {
+                    if (res?.success) showAlert("#gdMsg", "success", "Demand generated/posted: " + res.posted);
+                    else showAlert("#gdMsg", "warning", "Generate failed.");
+                })
+                .fail(xhr => showAlert("#gdMsg", "danger", parseError(xhr)))
+                .always(() => $btn.prop("disabled", false).text("Generate Demand"));
+        });
+
+        // Collect Fee - items table
         function renderClEmpty() {
             $("#clItemsTable tbody").html(`<tr><td colspan="4" class="p-3 text-center text-muted">No rows</td></tr>`);
             $("#clTotal").text("0.00");
@@ -572,36 +601,8 @@
             clRecalcTotal();
         }
         $("#btnClAddRow").on("click", () => clAddRow(null, null));
-        $(document).on("click", ".btn-cl-del-row", function () {
-            $(this).closest("tr").remove();
-            const $tb = $("#clItemsTable tbody");
-            if ($tb.find("tr").length === 0) renderClEmpty();
-            clRecalcTotal();
-        });
+        $(document).on("click", ".btn-cl-del-row", function () { $(this).closest("tr").remove(); const $tb = $("#clItemsTable tbody"); if ($tb.find("tr").length === 0) renderClEmpty(); clRecalcTotal(); });
         $(document).on("input", ".cl-amount", clRecalcTotal);
-
-        function loadBalanceText() {
-            const studentId = $("#clStudentId").val() ? parseInt($("#clStudentId").val(), 10) : 0;
-            const academicYear = $("#clYear").val().trim() || null;
-            const termId = $("#clTerm").val() ? parseInt($("#clTerm").val(), 10) : null;
-            if (!studentId || !academicYear || !termId) {
-                $("#clBalanceText").text("-");
-                return;
-            }
-            $.ajax({
-                url: "/Fee/GetStudentFeeBalance",
-                type: "GET",
-                dataType: "json",
-                data: { studentId, academicYear, termId }
-            })
-                .done(dto => {
-                    if (!dto) { $("#clBalanceText").text("-"); return; }
-                    const bal = dto.balance ?? dto.Balance ?? 0;
-                    $("#clBalanceText").text(fmt(bal));
-                })
-                .fail(() => $("#clBalanceText").text("-"));
-        }
-        $("#clStudentId,#clYear,#clTerm").on("change input", loadBalanceText);
 
         $("#btnClClear").on("click", function () {
             $("#clStudentId,#clYear,#clTerm,#clRef").val("");
@@ -609,33 +610,6 @@
             $("#clDate").val(todayStr());
             renderClEmpty();
             loadBalanceText();
-        });
-
-        $("#btnGenerateDemand").on("click", function () {
-            clearAlert("#gdMsg");
-            const payload = {
-                studentId: $("#gdStudentId").val() ? parseInt($("#gdStudentId").val(), 10) : 0,
-                academicYear: $("#gdYear").val().trim(),
-                termId: $("#gdTerm").val() ? parseInt($("#gdTerm").val(), 10) : 0
-            };
-            if (!payload.studentId || !payload.academicYear || !payload.termId) {
-                showAlert("#gdMsg", "warning", "Student ID, AY and Term are required.");
-                return;
-            }
-            const $btn = $(this).prop("disabled", true).text("Posting...");
-            $.ajax({
-                url: "/Fee/GenerateStudentTermFee",
-                type: "POST",
-                dataType: "json",
-                contentType: "application/json; charset=UTF-8",
-                data: JSON.stringify(payload)
-            })
-                .done(res => {
-                    if (res?.success) showAlert("#gdMsg", "success", "Demand generated/posted: " + res.posted);
-                    else showAlert("#gdMsg", "warning", "Generate failed.");
-                })
-                .fail(xhr => showAlert("#gdMsg", "danger", parseError(xhr)))
-                .always(() => $btn.prop("disabled", false).text("Generate Demand"));
         });
 
         $("#btnCollectFee").on("click", function () {
@@ -684,7 +658,6 @@
                         $("#rcptTitle").text("#" + res.receiptId);
                         $("#btnLoadReceipts").trigger("click");
                         $("#btnClClear").trigger("click");
-                        loadBalanceText();
                     } else {
                         showAlert("#clMsg", "warning", "Collection failed.");
                     }
@@ -693,12 +666,68 @@
                 .always(() => $btn.prop("disabled", false).text("Collect"));
         });
 
+        // ---------------- Initial Loads ----------------
         $("#clDate").val(todayStr());
+        loadHeadsForOptions(() => {
+            loadFeeHeads();
+        });
+        loadTermsForOptions(() => {
+            loadFeeTerms();
+        });
+        // structures header list initial
+        searchStructures();
+        // initial empty for collection
         renderClEmpty();
+    });
+})();
 
-        // ------------------------------------------------------------
-        // Receipts & Ledger
-        // ------------------------------------------------------------
+
+// wwwroot/js/script/fee.js
+// PART 2/2
+// Covers: Receipts & Ledger, Rules & Discounts (Fine Rules, Discount Schemes, Scholarships),
+// Adjustments, Online Payment (initiate/check), Receipt viewer modal
+// Requires common.js (BASE_URL, $.ajaxSetup, showAlert, clearAlert)
+
+(function () {
+    "use strict";
+
+    $(function () {
+        if ($("#feePage").length === 0) return;
+
+        const roles = ($("body").attr("data-roles") || "");
+        const isAdmin = roles.includes("Admin");
+        const isTeacher = roles.includes("Teacher");
+        if (!(isAdmin || isTeacher)) return;
+
+        // ---------------- Utilities ----------------
+        function parseError(xhr) {
+            if (xhr.responseJSON?.errors) return xhr.responseJSON.errors.join("<br/>");
+            if (xhr.responseJSON?.error) return xhr.responseJSON.error;
+            return xhr.status + " " + xhr.statusText;
+        }
+        function toLocalDate(d) {
+            if (!d) return "-";
+            const dt = new Date(d);
+            return isNaN(dt) ? "-" : dt.toLocaleDateString();
+        }
+        function toLocalDateTime(d) {
+            if (!d) return "-";
+            const dt = new Date(d);
+            return isNaN(dt) ? "-" : dt.toLocaleString();
+        }
+        function todayStr() { const t = new Date(); return t.toISOString().substring(0, 10); }
+        function fmt(num) { return (Number(num || 0)).toFixed(2); }
+
+        // Reuse fee heads cache (if Part 1 loaded)
+        let feeHeadsCache = window.feeHeadsCache || [];
+        function headNameById(id) {
+            const h = (feeHeadsCache || []).find(x => x.headId === id);
+            return h ? (h.headCode + " - " + h.headName) : (id ?? "");
+        }
+
+        // =========================================================================
+        // RECEIPTS & LEDGER
+        // =========================================================================
         const rcptModal = new bootstrap.Modal(document.getElementById("rcptModal"), { backdrop: "static" });
 
         function renderReceipts(list) {
@@ -767,6 +796,7 @@
             $("#rcptRef").text("-");
             $("#rcptAmount").text("-");
             $("#rcptItemsTable tbody").html(`<tr><td colspan="3" class="p-3 text-center text-muted">Loading...</td></tr>`);
+
             $.ajax({
                 url: "/Fee/GetFeeReceiptById",
                 type: "GET",
@@ -812,6 +842,7 @@
             rcptModal.show();
         });
 
+        // Ledger
         function renderLedger(list) {
             const $tb = $("#lgTable tbody");
             if (!Array.isArray(list) || list.length === 0) {
@@ -822,7 +853,9 @@
                 const date = l.entryDate || l.date || l.createdAtUtc;
                 const type = l.type || l.entryType || "-";
                 const head = l.headName || headNameById(l.headId) || "-";
-                const amount = l.amount ?? l.Amount ?? 0;
+                //const debit = l.debit ?? l.Debit ?? 0;
+                //const credit = l.credit ?? l.Credit ?? 0;
+                const amount = l.amount ?? l.amount ?? 0;
                 const balance = l.balance ?? l.Balance ?? 0;
                 const narr = l.narration || "-";
                 return `
@@ -858,14 +891,18 @@
                 .fail(xhr => showAlert("#rcMsg", "danger", parseError(xhr)));
         });
 
-        // ------------------------------------------------------------
-        // Rules & Discounts
-        // ------------------------------------------------------------
+        // =========================================================================
+        // RULES & DISCOUNTS (Fine Rules, Discount Schemes, Scholarships)
+        // =========================================================================
         const frModal = new bootstrap.Modal(document.getElementById("frModal"), { backdrop: "static" });
         const dsModal = new bootstrap.Modal(document.getElementById("dsModal"), { backdrop: "static" });
         const schModal = new bootstrap.Modal(document.getElementById("schModal"), { backdrop: "static" });
 
-        // Fine rules
+        let fineRulesCache = [];
+        let schemesCache = [];
+        let scholarshipsCache = [];
+
+        // Fine Rules list
         function renderFineRules(list) {
             const $tb = $("#frTable tbody");
             if (!Array.isArray(list) || list.length === 0) {
@@ -886,7 +923,6 @@
           <td>${r.isActive ? "Yes" : "No"}</td>
           <td>
             <div class="btn-group btn-group-sm">
-              <button class="btn btn-outline-success btn-fr-apply">Apply</button>
               <button class="btn btn-outline-primary btn-fr-edit">Edit</button>
             </div>
           </td>
@@ -913,6 +949,7 @@
                 .done(renderFineRules)
                 .fail(xhr => showAlert("#rdMsg", "danger", parseError(xhr)));
         }
+        // Fine Rule modal open/save
         function openFineRuleModal(ruleId) {
             clearAlert("#frFormMsg");
             $("#frModalLabel").text(ruleId ? "Edit Fine Rule" : "New Fine Rule");
@@ -980,13 +1017,10 @@
 
         $("#btnLoadFineRules, #btnSearchFineRules").on("click", loadFineRules);
         $("#btnNewFineRule").on("click", () => openFineRuleModal(0));
-        $(document).on("click", ".btn-fr-edit", function () {
-            const id = parseInt($(this).closest("tr").data("id"), 10);
-            if (id) openFineRuleModal(id);
-        });
+        $(document).on("click", ".btn-fr-edit", function () { const id = parseInt($(this).closest("tr").data("id"), 10); if (id) openFineRuleModal(id); });
         $("#btnSaveFineRule").on("click", saveFineRule);
 
-        // Discount schemes
+        // Discount Schemes
         function renderSchemes(list) {
             const $tb = $("#dsTable tbody");
             if (!Array.isArray(list) || list.length === 0) {
@@ -1105,10 +1139,7 @@
 
         $("#btnLoadSchemes, #btnSearchSchemes").on("click", loadSchemes);
         $("#btnNewScheme").on("click", () => openSchemeModal(0));
-        $(document).on("click", ".btn-ds-edit", function () {
-            const id = parseInt($(this).closest("tr").data("id"), 10);
-            if (id) openSchemeModal(id);
-        });
+        $(document).on("click", ".btn-ds-edit", function () { const id = parseInt($(this).closest("tr").data("id"), 10); if (id) openSchemeModal(id); });
         $("#btnSaveScheme").on("click", saveScheme);
 
         // Scholarships
@@ -1126,15 +1157,12 @@
           <td>${s.academicYear || ""}</td>
           <td>${s.termId ?? ""}</td>
           <td>${s.mode}</td>
-          <td>${s.capAmount}</td>
-          <td>${s.schemeId}</td>
           <td>${fmt(s.value)}</td>
           <td>${s.capAmount != null ? fmt(s.capAmount) : "-"}</td>
           <td>${s.scholarshipHeadId}</td>
           <td>${s.isActive ? "Yes" : "No"}</td>
           <td>
             <div class="btn-group btn-group-sm">
-              <button class="btn btn-outline-success btn-sch-apply">Apply</button>
               <button class="btn btn-outline-primary btn-sch-edit">Edit</button>
             </div>
           </td>
@@ -1198,8 +1226,8 @@
                 scholarshipHeadId: $("#schHead").val() ? parseInt($("#schHead").val(), 10) : 0,
                 isActive: $("#schActiveVal").val() === "true"
             };
-            if (!dto.studentId || !dto.academicYear || !dto.mode || !dto.scholarshipHeadId || !dto.schemeId) {
-                showAlert("#schFormMsg", "warning", "Student, AY, Mode, Head and SchemeId are required.");
+            if (!dto.studentId || !dto.academicYear || !dto.mode || !dto.scholarshipHeadId) {
+                showAlert("#schFormMsg", "warning", "Student, AY, Mode and Head are required.");
                 return;
             }
             const $btn = $("#btnSaveScholarship").prop("disabled", true).text("Saving...");
@@ -1225,151 +1253,12 @@
 
         $("#btnLoadScholarships, #btnSearchScholarships").on("click", loadScholarships);
         $("#btnNewScholarship").on("click", () => openScholarshipModal(0));
-        $(document).on("click", ".btn-sch-edit", function () {
-            const id = parseInt($(this).closest("tr").data("id"), 10);
-            if (id) openScholarshipModal(id);
-        });
+        $(document).on("click", ".btn-sch-edit", function () { const id = parseInt($(this).closest("tr").data("id"), 10); if (id) openScholarshipModal(id); });
         $("#btnSaveScholarship").on("click", saveScholarship);
 
-        // Apply Late Fee (bulk via scope)
-        $("#btnApplyLateFee").on("click", function () {
-            clearAlert("#apLfMsg");
-            const dto = {
-                academicYear: $("#apLfYear").val().trim(),
-                termId: $("#apLfTerm").val() ? parseInt($("#apLfTerm").val(), 10) : 0,
-                className: $("#apLfClass").val().trim() || null,
-                section: $("#apLfSection").val().trim() || null,
-                asOfDate: $("#apLfAsOf").val() || null
-            };
-            if (!dto.academicYear || !dto.termId) {
-                showAlert("#apLfMsg", "warning", "AY and Term are required.");
-                return;
-            }
-            const $btn = $(this).prop("disabled", true).text("Applying...");
-            $.ajax({
-                url: "/Fee/ApplyLateFeeForTerm",
-                type: "POST",
-                dataType: "json",
-                contentType: "application/json; charset=UTF-8",
-                data: JSON.stringify(dto)
-            })
-                .done(res => {
-                    if (res?.success) {
-                        showAlert("#apLfMsg", "success", `Late fee posted for ${res.posted} student(s).`);
-                        $("#btnLoadAdjustments").trigger("click");
-                    } else {
-                        showAlert("#apLfMsg", "warning", "Apply failed.");
-                    }
-                })
-                .fail(xhr => showAlert("#apLfMsg", "danger", parseError(xhr)))
-                .always(() => $btn.prop("disabled", false).text("Apply"));
-        });
-
-        // Apply late fee directly from a rule row
-        $(document).on("click", ".btn-fr-apply", function () {
-            const id = parseInt($(this).closest("tr").data("id"), 10);
-            const r = fineRulesCache.find(x => x.ruleId === id);
-            if (!r) return;
-            clearAlert("#rdMsg");
-            const dto = {
-                academicYear: r.academicYear,
-                className: r.className || null,
-                section: r.section || null,
-                termId: r.termId,
-                asOfDate: (new Date()).toISOString().substring(0, 10)
-            };
-            $.ajax({
-                url: "/Fee/ApplyLateFeeForTerm",
-                type: "POST",
-                dataType: "json",
-                contentType: "application/json; charset=UTF-8",
-                data: JSON.stringify(dto)
-            })
-                .done(res => {
-                    if (res?.success) {
-                        showAlert("#rdMsg", "success", `Late fee posted for ${res.posted} student(s).`);
-                        $("#btnLoadAdjustments").trigger("click");
-                    } else {
-                        showAlert("#rdMsg", "warning", "Apply failed.");
-                    }
-                })
-                .fail(xhr => showAlert("#rdMsg", "danger", parseError(xhr)));
-        });
-
-        // Apply Discount/Scholarship for a student-term
-        $("#btnApplyStudentDiscount").on("click", function () {
-            clearAlert("#apDsMsg");
-            alert("inside ApplyButtom");
-            debugger;
-            const dto = {
-                studentId: $("#apDsStudent").val() ? parseInt($("#apDsStudent").val(), 10) : 0,
-                academicYear: $("#apDsYear").val().trim(),
-                termId: $("#apDsTerm").val() ? parseInt($("#apDsTerm").val(), 10) : 0,
-                schemeId: $("#apDsSchemeId").val() ? parseInt($("#apDsSchemeId").val(), 10) : null,
-                
-            };
-            if (!dto.studentId || !dto.academicYear || !dto.termId || !dto.schemeId) {
-                showAlert("#apDsMsg", "warning", "Student, AY and Term are required.");
-                return;
-            }
-            const $btn = $(this).prop("disabled", true).text("Applying...");
-            $.ajax({
-                url: "/Fee/ApplyDiscountForStudentTerm",
-                type: "POST",
-                dataType: "json",
-                contentType: "application/json; charset=UTF-8",
-                data: JSON.stringify(dto)
-            })
-                .done(res => {
-                    if (res?.success) {
-                        showAlert("#apDsMsg", "success", `Discount(s)/Scholarship(s) posted: ${res.posted}.`);
-                        $("#btnLoadAdjustments").trigger("click");
-                        try { loadBalanceText(); } catch { }
-                    } else {
-                        showAlert("#apDsMsg", "warning", "Apply failed.");
-                    }
-                })
-                .fail(xhr => showAlert("#apDsMsg", "danger", parseError(xhr)))
-                .always(() => $btn.prop("disabled", false).text("Apply"));
-        });
-
-        // Apply a specific scholarship row
-        $(document).on("click", ".btn-sch-apply", function () {
-            const id = parseInt($(this).closest("tr").data("id"), 10);
-            const s = scholarshipsCache.find(x => x.scholarshipId === id);
-            if (!s) return;
-            clearAlert("#rdMsg");
-            const dto = {
-                studentId: s.studentId,
-                academicYear: s.academicYear,
-                termId: s.termId || 0,
-                schemeId: s.schemeId,
-                value: s.value,
-                capAmount: s.capAmount,
-
-            };
-            $.ajax({
-                url: "/Fee/ApplyDiscountForStudentTerm",
-                type: "POST",
-                dataType: "json",
-                contentType: "application/json; charset=UTF-8",
-                data: JSON.stringify(dto)
-            })
-                .done(res => {
-                    if (res?.success) {
-                        showAlert("#rdMsg", "success", `Scholarship applied. Posted: ${res.posted}.`);
-                        $("#btnLoadAdjustments").trigger("click");
-                        try { loadBalanceText(); } catch { }
-                    } else {
-                        showAlert("#rdMsg", "warning", "Apply failed.");
-                    }
-                })
-                .fail(xhr => showAlert("#rdMsg", "danger", parseError(xhr)));
-        });
-
-        // ------------------------------------------------------------
-        // Adjustments
-        // ------------------------------------------------------------
+        // =========================================================================
+        // ADJUSTMENTS
+        // =========================================================================
         function renderAdjustments(list) {
             const $tb = $("#adjTable tbody");
             if (!Array.isArray(list) || list.length === 0) {
@@ -1447,9 +1336,9 @@
                 .fail(xhr => showAlert("#adjMsg", "danger", parseError(xhr)));
         });
 
-        // ------------------------------------------------------------
-        // Online Payment
-        // ------------------------------------------------------------
+        // =========================================================================
+        // ONLINE PAYMENT
+        // =========================================================================
         function opRecalcTotal() {
             let total = 0;
             $("#opItemsTable tbody tr").each(function () {
@@ -1484,12 +1373,7 @@
         }
 
         $("#btnOpAddRow").on("click", () => opAddRow(null, null));
-        $(document).on("click", ".btn-op-del-row", function () {
-            $(this).closest("tr").remove();
-            const $tb = $("#opItemsTable tbody");
-            if ($tb.find("tr").length === 0) opRenderEmpty();
-            opRecalcTotal();
-        });
+        $(document).on("click", ".btn-op-del-row", function () { $(this).closest("tr").remove(); const $tb = $("#opItemsTable tbody"); if ($tb.find("tr").length === 0) opRenderEmpty(); opRecalcTotal(); });
         $(document).on("input", ".op-amount", opRecalcTotal);
 
         $("#btnInitiateOnline").on("click", function () {
@@ -1499,6 +1383,8 @@
                 academicYear: $("#opYear").val().trim(),
                 termId: $("#opTerm").val() ? parseInt($("#opTerm").val(), 10) : 0,
                 currency: "INR",
+                returnUrl: $("#opReturnUrl").val().trim() || null,
+                callbackUrl: $("#opCallbackUrl").val().trim() || null,
                 items: []
             };
             $("#opItemsTable tbody tr").each(function () {
@@ -1520,9 +1406,9 @@
             })
                 .done(res => {
                     if (res?.success) {
-                        showAlert("#opMsg", "success", "Order created: " + (res.OrderNo || res.orderNo));
-                        $("#opPaymentLink").removeClass("d-none").attr("href", res.PaymentUrl || res.paymentUrl).text("Open Payment " + (res.GatewayName ? "(" + res.GatewayName + ")" : ""));
-                        $("#opOrderNo").val(res.OrderNo || res.orderNo);
+                        showAlert("#opMsg", "success", "Order created: " + res.OrderNo);
+                        $("#opPaymentLink").removeClass("d-none").attr("href", res.PaymentUrl).text("Open Payment (" + res.GatewayName + ")");
+                        $("#opOrderNo").val(res.OrderNo);
                     } else {
                         showAlert("#opMsg", "warning", "Initiation failed.");
                     }
@@ -1546,21 +1432,13 @@
                     $("#opOrderStatus").text(res.status || res.Status || "-");
                 })
                 .fail(xhr => {
-                    $("#opOrderStatus").text("Failed");
+                    $("#opOrderStatus").text("Error");
                     showAlert("#opMsg", "danger", parseError(xhr));
                 });
         });
 
-        // ------------------------------------------------------------
-        // Initial loads
-        // ------------------------------------------------------------
-        // Preload heads and terms for dropdowns, then initial lists
-        loadHeadsForOptions(() => {
-            loadFeeHeads();
-        });
-        loadTermsForOptions(() => {
-            loadFeeTerms();
-        });
-        searchStructures();
+        // ---------------- Initial Loads (Part 2) ----------------
+        $("#clDate").val(todayStr());
+        opRenderEmpty();
     });
 })();

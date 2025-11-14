@@ -408,7 +408,7 @@ namespace SMS.Admin.Controllers
             // Since it's not present, we render a minimal page asking user to return to /Fee/Index if gatewayOrderId missing.
 
             ViewData["OrderNo"] = orderNo;
-            ViewData["KeyId"] = _config["Payments:Razorpay:KeyId"] ?? "";
+            ViewData["KeyId"] = _config["Payments:Razorpay:KeyId"];
             // client script will fetch order details via ajax GET /Fee/GetPaymentOrderStatus and our backend will handle opening checkout.
             // But checkout requires gateway order id. To avoid complexity, add simple server-provided model:
 

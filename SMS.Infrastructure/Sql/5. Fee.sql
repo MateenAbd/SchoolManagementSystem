@@ -540,103 +540,66 @@ END
 GO
 
 Create or ALTER PROCEDURE dbo.InsertStudentFeeLedgerEntry
-    @StudentId INT,
-    @AcademicYear NVARCHAR(15),
-    @TermId INT,
-    @HeadId INT = NULL,
-    @EntryType NVARCHAR(10), -- 'Debit' or 'Credit'
-    @Amount DECIMAL(18,2),
-    @Narration NVARCHAR(500) = NULL,
-    @ReceiptId INT = NULL,
-    @EntryDate DATE
+    @StudentId     INT,
+    @AcademicYear  NVARCHAR(15),
+    @TermId        INT,
+    @HeadId        INT = NULL,
+    @EntryType     NVARCHAR(10),   -- 'Debit' or 'Credit'
+    @Amount        DECIMAL(18,2),
+    @Narration     NVARCHAR(500) = NULL,
+    @ReceiptId     INT = NULL,
+    @EntryDate     DATE
 AS
 BEGIN
-    SET NOCOUNT ON;
-    SET XACT_ABORT ON;
+    SET NOCOUNT, XACT_ABORT ON;
 
     BEGIN TRY
         BEGIN TRAN;
 
-        -- 1?? Insert the ledger entry (Balance will be filled after calculation)
-        INSERT INTO dbo.StudentFeeLedger (
-            StudentId,
-            AcademicYear,
-            TermId,
-            HeadId,
-            EntryType,
-            Amount,
-            Narration,
-            ReceiptId,
-            EntryDate,
-            CreatedAtUtc,
-            Balance
+        INSERT INTO dbo.StudentFeeLedger
+            (StudentId, AcademicYear, TermId, HeadId, EntryType,
+             Amount, Narration, ReceiptId, EntryDate, CreatedAtUtc, Balance)
+        VALUES
+            (@StudentId, @AcademicYear, @TermId, @HeadId, @EntryType,
+             @Amount, @Narration, @ReceiptId, @EntryDate,
+             SYSUTCDATETIME(), NULL);
+
+        DECLARE @LedgerId INT = SCOPE_IDENTITY();
+
+        ;WITH LedgerOrdered AS
+        (
+            SELECT LedgerId,
+                   CASE WHEN EntryType = 'Debit' THEN -Amount ELSE Amount END AS SignedAmt
+            FROM dbo.StudentFeeLedger
+            WHERE StudentId    = @StudentId
+        ),
+        Running AS
+        (
+            SELECT LedgerId,
+                   SUM(SignedAmt) OVER (ORDER BY LedgerId ROWS UNBOUNDED PRECEDING) AS RunningBalance
+            FROM LedgerOrdered
         )
-        VALUES (
-            @StudentId,
-            @AcademicYear,
-            @TermId,
-            @HeadId,
-            @EntryType,
-            @Amount,
-            @Narration,
-            @ReceiptId,
-            @EntryDate,
-            SYSUTCDATETIME(),
-            NULL
-        );
-
-        DECLARE @LedgerId INT = CONVERT(INT, SCOPE_IDENTITY());
-        DECLARE @TotalDebit DECIMAL(18,2) = 0;
-        DECLARE @TotalCredit DECIMAL(18,2) = 0;
-
-        -- 2?? Use a table variable to capture GetStudentFeeBalance result
-        DECLARE @BalanceResult TABLE (
-            StudentId INT,
-            AcademicYear NVARCHAR(15),
-            TermId INT,
-            TotalDebit DECIMAL(18,2),
-            TotalCredit DECIMAL(18,2)
-        );
-
-        INSERT INTO @BalanceResult
-        EXEC dbo.GetStudentFeeBalance
-            @StudentId = @StudentId,
-            @AcademicYear = @AcademicYear,
-            @TermId = @TermId;
-
-        SELECT TOP (1)
-            @TotalDebit = ISNULL(TotalDebit, 0),
-            @TotalCredit = ISNULL(TotalCredit, 0)
-        FROM @BalanceResult;
-
-        DECLARE @Balance DECIMAL(18,2) = @TotalCredit - @TotalDebit;
-
-        -- 3?? Update the same ledger row with the computed balance
-        UPDATE dbo.StudentFeeLedger
-        SET Balance = @Balance
-        WHERE LedgerId = @LedgerId;
+        UPDATE l
+        SET Balance = r.RunningBalance
+        FROM dbo.StudentFeeLedger l
+        INNER JOIN Running r ON l.LedgerId = r.LedgerId
+        WHERE l.StudentId    = @StudentId;
 
         COMMIT TRAN;
 
-        -- Optional: also show info if you run it manually
-        SELECT @LedgerId AS InsertedLedgerId, @Balance AS CurrentBalance;
+        -- Optional: return info when run manually
+        SELECT @LedgerId AS InsertedLedgerId,
+               (SELECT Balance FROM dbo.StudentFeeLedger WHERE LedgerId = @LedgerId) AS CurrentBalance;
 
-        RETURN CONVERT(INT, @LedgerId);
+        RETURN @LedgerId;
+
     END TRY
     BEGIN CATCH
-        IF XACT_STATE() <> 0
-            ROLLBACK TRAN;
-
-        DECLARE @ErrorMessage NVARCHAR(4000) = ERROR_MESSAGE();
-        DECLARE @ErrorSeverity INT = ERROR_SEVERITY();
-        DECLARE @ErrorState INT = ERROR_STATE();
-
-        RAISERROR (@ErrorMessage, @ErrorSeverity, @ErrorState);
-        RETURN -1; -- optional error indicator
+        IF XACT_STATE() <> 0 ROLLBACK TRAN;
+        THROW;
     END CATCH
 END;
 GO
-
 
 CREATE OR ALTER PROCEDURE GetFeeReceiptById
     @ReceiptId INT
@@ -979,145 +942,275 @@ BEGIN
 END
 GO
 
--- Uses FeeTerms.DueDate, fine rules, and current outstanding
-CREATE OR ALTER PROCEDURE ApplyLateFeeForTerm
+Create or ALTER   PROCEDURE dbo.ApplyLateFeeForTerm
     @AcademicYear NVARCHAR(15),
-    @TermId INT,
-    @AsOfDate DATETIME2
+    @TermId       INT,
+    @AsOfDate     DATETIME2
 AS
 BEGIN
-    SET NOCOUNT ON;
+    SET NOCOUNT, XACT_ABORT ON;
 
-    DECLARE @DueDate DATETIME2 = (SELECT TOP 1 DueDate FROM dbo.FeeTerms WHERE AcademicYear=@AcademicYear AND TermId=@TermId);
-    IF @DueDate IS NULL THROW 63001, 'Term due date not found', 1;
-    IF @AsOfDate <= @DueDate RETURN 0;
+    BEGIN TRY
+        BEGIN TRAN;
 
-    ;WITH BAL AS
-    (
-        SELECT s.StudentId,
-               SUM(CASE WHEN l.EntryType='Debit' THEN l.Amount ELSE 0 END) AS DebitAmt,
-               SUM(CASE WHEN l.EntryType='Credit' THEN l.Amount ELSE 0 END) AS CreditAmt
-        FROM dbo.Students s
-        LEFT JOIN dbo.StudentFeeLedger l ON l.StudentId=s.StudentId AND l.AcademicYear=@AcademicYear AND l.TermId=@TermId
-        GROUP BY s.StudentId
-    ),
-    OVR AS --find Students Who Owe Money
-    (
-        SELECT b.StudentId, (b.DebitAmt - b.CreditAmt) AS Outstanding
-        FROM BAL b
-        WHERE (b.DebitAmt - b.CreditAmt) > 0
-    ),
-    RULES AS --get the Fine Rules for the Term
-    (
-        SELECT r.*
-        FROM dbo.FeeFineRules r
-        WHERE r.AcademicYear=@AcademicYear AND r.TermId=@TermId AND r.IsActive=1
-    )
+        DECLARE @DueDate DATETIME2 =
+            (SELECT TOP 1 DueDate
+               FROM dbo.FeeTerms
+              WHERE AcademicYear = @AcademicYear
+                AND TermId       = @TermId);
 
-    --determine who gets fined and how much:
-    SELECT o.StudentId, r.RuleId, r.Mode, r.Rate, r.MaxAmount, r.FineHeadId,
-           DATEDIFF(DAY, @DueDate, @AsOfDate) - r.GraceDays AS ChargeDays,
-           o.Outstanding
-    INTO #Fines
-    FROM OVR o
-    CROSS APPLY (
-        SELECT TOP 1 r.* FROM RULES r
-        LEFT JOIN dbo.Students s ON s.StudentId=o.StudentId
-        WHERE (r.ClassName IS NULL OR r.ClassName = s.ClassName)
-          AND (r.Section IS NULL OR r.Section = s.Section)
-        ORDER BY r.ClassName DESC, r.Section DESC, r.RuleId DESC
-    ) AS r
-    WHERE (DATEDIFF(DAY, @DueDate, @AsOfDate) - r.GraceDays) > 0;
+        IF @DueDate IS NULL
+            THROW 63001, 'Term due date not found', 1;
 
-    DECLARE @Posted INT = 0;
+        IF @AsOfDate <= @DueDate
+        BEGIN
+            COMMIT TRAN;
+            RETURN 0;
+        END
 
-    INSERT INTO dbo.StudentFeeLedger (StudentId, AcademicYear, TermId, HeadId, EntryType, Amount, Narration, ReceiptId, EntryDate)
-    SELECT f.StudentId, @AcademicYear, @TermId, f.FineHeadId, 'Debit',
-           CASE f.Mode
-                WHEN 'PerDayFixed'   THEN CONVERT(DECIMAL(18,2), f.Rate * f.ChargeDays)
-                WHEN 'PerDayPercent' THEN CONVERT(DECIMAL(18,2), (f.Outstanding * f.Rate/100.0) * f.ChargeDays)
-                WHEN 'FixedOnce'     THEN f.Rate
-                WHEN 'PercentOnce'   THEN CONVERT(DECIMAL(18,2), f.Outstanding * f.Rate/100.0)
-            END AS Amount,
-           CONCAT('Late fee as of ', CONVERT(date,@AsOfDate)),
-           NULL,
-           CAST(@AsOfDate AS DATE)
-    FROM #Fines f
-    WHERE
-        CASE f.Mode
-            WHEN 'PerDayFixed'   THEN f.Rate * f.ChargeDays
-            WHEN 'PerDayPercent' THEN (f.Outstanding * f.Rate/100.0) * f.ChargeDays
-            WHEN 'FixedOnce'     THEN f.Rate
-            WHEN 'PercentOnce'   THEN (f.Outstanding * f.Rate/100.0)
-        END > 0
-      AND (f.MaxAmount IS NULL OR
-           CASE f.Mode
-               WHEN 'PerDayFixed'   THEN f.Rate * f.ChargeDays
-               WHEN 'PerDayPercent' THEN (f.Outstanding * f.Rate/100.0) * f.ChargeDays
-               WHEN 'FixedOnce'     THEN f.Rate
-               WHEN 'PercentOnce'   THEN (f.Outstanding * f.Rate/100.0)
-           END <= f.MaxAmount);
+        ;WITH BAL AS
+        (
+            SELECT s.StudentId,
+                   SUM(CASE WHEN l.EntryType='Debit'  THEN l.Amount ELSE 0 END) AS DebitAmt,
+                   SUM(CASE WHEN l.EntryType='Credit' THEN l.Amount ELSE 0 END) AS CreditAmt
+            FROM dbo.Students s
+            LEFT JOIN dbo.StudentFeeLedger l
+                   ON l.StudentId    = s.StudentId
+                  AND l.AcademicYear = @AcademicYear
+                  AND l.TermId       = @TermId
+            GROUP BY s.StudentId
+        ),
+        OVR AS
+        (
+            SELECT StudentId,
+                   (DebitAmt - CreditAmt) AS Outstanding
+            FROM BAL
+            WHERE (DebitAmt - CreditAmt) > 0
+        ),
+        RULES AS
+        (
+            SELECT *
+            FROM dbo.FeeFineRules
+            WHERE AcademicYear = @AcademicYear
+              AND TermId       = @TermId
+              AND IsActive     = 1
+        )
 
-    SET @Posted = @@ROWCOUNT;
-    DROP TABLE IF EXISTS #Fines;
+        SELECT o.StudentId,
+               r.RuleId, r.Mode, r.Rate, r.MaxAmount, r.FineHeadId,
+               DATEDIFF(DAY, @DueDate, @AsOfDate) - r.GraceDays AS ChargeDays,
+               o.Outstanding
+        INTO #Fines
+        FROM OVR o
+        CROSS APPLY (
+            SELECT TOP 1 r.* FROM RULES r
+            LEFT JOIN dbo.Students s ON s.StudentId=o.StudentId
+            WHERE (r.ClassName IS NULL OR r.ClassName = s.ClassName)
+              AND (r.Section IS NULL OR r.Section = s.Section)
+            ORDER BY r.ClassName DESC, r.Section DESC, r.RuleId DESC
+        ) AS r
+        WHERE (DATEDIFF(DAY, @DueDate, @AsOfDate) - r.GraceDays) > 0;
 
-    RETURN @Posted;
-END
+        INSERT INTO dbo.StudentFeeLedger
+            (StudentId, AcademicYear, TermId, HeadId, EntryType,
+             Amount, Narration, ReceiptId, EntryDate, CreatedAtUtc, Balance)
+        SELECT f.StudentId,
+               @AcademicYear,
+               @TermId,
+               f.FineHeadId,
+               'Debit',
+               CASE f.Mode
+                   WHEN 'PerDayFixed'   THEN CONVERT(DECIMAL(18,2), f.Rate * f.ChargeDays)
+                   WHEN 'PerDayPercent' THEN CONVERT(DECIMAL(18,2), (f.Outstanding * f.Rate/100.0) * f.ChargeDays)
+                   WHEN 'FixedOnce'     THEN f.Rate
+                   WHEN 'PercentOnce'   THEN CONVERT(DECIMAL(18,2), f.Outstanding * f.Rate/100.0)
+               END,
+               CONCAT('Late fee as of ', CONVERT(date,@AsOfDate)),
+               NULL,
+               CAST(@AsOfDate AS DATE),
+               SYSUTCDATETIME(),
+               NULL
+        FROM #Fines f
+        WHERE CASE f.Mode
+                 WHEN 'PerDayFixed'   THEN f.Rate * f.ChargeDays
+                 WHEN 'PerDayPercent' THEN (f.Outstanding * f.Rate/100.0) * f.ChargeDays
+                 WHEN 'FixedOnce'     THEN f.Rate
+                 WHEN 'PercentOnce'   THEN (f.Outstanding * f.Rate/100.0)
+              END > 0
+          AND (f.MaxAmount IS NULL
+               OR CASE f.Mode
+                     WHEN 'PerDayFixed'   THEN f.Rate * f.ChargeDays
+                     WHEN 'PerDayPercent' THEN (f.Outstanding * f.Rate/100.0) * f.ChargeDays
+                     WHEN 'FixedOnce'     THEN f.Rate
+                     WHEN 'PercentOnce'   THEN (f.Outstanding * f.Rate/100.0)
+                  END <= f.MaxAmount);
+
+        DECLARE @Posted INT = @@ROWCOUNT;
+
+
+        IF @Posted > 0
+        BEGIN
+            ;WITH LedgerOrdered AS
+            (
+                SELECT LedgerId,
+                       CASE WHEN EntryType = 'Debit' THEN -Amount ELSE Amount END AS SignedAmt
+                FROM dbo.StudentFeeLedger l
+                WHERE EXISTS (SELECT 1 FROM #Fines f WHERE f.StudentId = l.StudentId)
+            ),
+            Running AS
+            (
+                SELECT LedgerId,
+                       SUM(SignedAmt) OVER (PARTITION BY (SELECT StudentId FROM dbo.StudentFeeLedger WHERE LedgerId = lo.LedgerId)
+                                            ORDER BY LedgerId
+                                            ROWS UNBOUNDED PRECEDING) AS RunningBalance
+                FROM LedgerOrdered lo
+            )
+            UPDATE l
+            SET Balance = r.RunningBalance
+            FROM dbo.StudentFeeLedger l
+            INNER JOIN Running r ON l.LedgerId = r.LedgerId;
+        END
+
+        DROP TABLE IF EXISTS #Fines;
+
+        COMMIT TRAN;
+        RETURN @Posted;
+    END TRY
+    BEGIN CATCH
+        IF XACT_STATE() <> 0 ROLLBACK TRAN;
+        THROW;
+    END CATCH
+END;
 GO
 
-CREATE OR ALTER PROCEDURE ApplyDiscountForStudentTerm
-    @StudentId INT,
+CREATE OR 
+ALTER PROCEDURE dbo.ApplyDiscountForStudentTerm
+    @StudentId    INT,
     @AcademicYear NVARCHAR(15),
-    @TermId INT,
-    @SchemeId INT = NULL,
-    @Mode NVARCHAR(10) = NULL,     -- Percent/Amount if no scheme
-    @Value DECIMAL(18,2) = NULL,
-    @CapAmount DECIMAL(18,2) = NULL
+    @TermId       INT,
+    @SchemeId     INT = NULL,
+    @Mode         NVARCHAR(10) = NULL,   -- Percent/Amount if no scheme
+    @Value        DECIMAL(18,2) = NULL,
+    @CapAmount    DECIMAL(18,2) = NULL
 AS
 BEGIN
-    SET NOCOUNT ON;
+    SET NOCOUNT, XACT_ABORT ON;
 
-    DECLARE @useMode NVARCHAR(10), @useValue DECIMAL(18,2), @useCap DECIMAL(18,2), @headId INT;
+    BEGIN TRY
+        BEGIN TRAN;
 
-    IF @SchemeId IS NOT NULL
-    BEGIN
-        SELECT TOP 1 @useMode=Mode, @useValue=Value, @useCap=CapAmount, @headId=DiscountHeadId
-        FROM dbo.FeeDiscountSchemes WHERE SchemeId=@SchemeId AND IsActive=1;
-        IF @useMode IS NULL THROW 64001, 'Scheme not found or inactive', 1;
-    END
-    ELSE
-    BEGIN
-        SET @useMode = @Mode;
-        SET @useValue = @Value;
-        SET @useCap = @CapAmount;
-        -- Default: require a discount head; using a standard DISCOUNT head is recommended
-        SELECT TOP 1 @headId = HeadId FROM dbo.FeeHeads WHERE HeadCode='DISCOUNT';
-        IF @headId IS NULL THROW 64002, 'DISCOUNT head not found; create FeeHead with HeadCode=DISCOUNT', 1;
-    END
+        DECLARE @useMode   NVARCHAR(10),
+                @useValue  DECIMAL(18,2),
+                @useCap    DECIMAL(18,2),
+                @headId    INT;
 
-    IF @useMode NOT IN ('Percent','Amount') THROW 64003, 'Invalid mode', 1;
+        IF @SchemeId IS NOT NULL
+        BEGIN
+            SELECT TOP 1
+                   @useMode   = Mode,
+                   @useValue  = Value,
+                   @useCap    = CapAmount,
+                   @headId    = DiscountHeadId
+            FROM dbo.FeeDiscountSchemes
+            WHERE SchemeId = @SchemeId AND IsActive = 1;
 
-    DECLARE @Debit DECIMAL(18,2) = (
-        SELECT COALESCE(SUM(Amount),0) FROM dbo.StudentFeeLedger
-        WHERE StudentId=@StudentId AND AcademicYear=@AcademicYear AND TermId=@TermId AND EntryType='Debit'
-    );
-    DECLARE @Credit DECIMAL(18,2) = (
-        SELECT COALESCE(SUM(Amount),0) FROM dbo.StudentFeeLedger
-        WHERE StudentId=@StudentId AND AcademicYear=@AcademicYear AND TermId=@TermId AND EntryType='Credit'
-    );
-    DECLARE @Outstanding DECIMAL(18,2) = @Debit - @Credit;
-    IF @Outstanding <= 0 RETURN 0;
+            IF @useMode IS NULL
+                THROW 64001, 'Scheme not found or inactive', 1;
+        END
+        ELSE
+        BEGIN
+            SET @useMode  = @Mode;
+            SET @useValue = @Value;
+            SET @useCap   = @CapAmount;
 
-    DECLARE @Discount DECIMAL(18,2) = CASE WHEN @useMode='Percent' THEN @Outstanding * @useValue/100.0 ELSE @useValue END;
-    IF @useCap IS NOT NULL AND @Discount > @useCap SET @Discount = @useCap;
+            SELECT TOP 1 @headId = HeadId
+            FROM dbo.FeeHeads
+            WHERE HeadCode = 'DISCOUNT';
 
-    IF @Discount <= 0 RETURN 0;
+            IF @headId IS NULL
+                THROW 64002, 'DISCOUNT head not found; create FeeHead with HeadCode=DISCOUNT', 1;
+        END
 
-    INSERT INTO dbo.StudentFeeLedger (StudentId, AcademicYear, TermId, HeadId, EntryType, Amount, Narration, ReceiptId, EntryDate)
-    VALUES (@StudentId, @AcademicYear, @TermId, @headId, 'Credit', @Discount, 'Discount applied', NULL, CAST(SYSUTCDATETIME() AS DATE));
+        IF @useMode NOT IN ('Percent','Amount')
+            THROW 64003, 'Invalid mode', 1;
 
-    RETURN 1;
-END
+        DECLARE @Debit      DECIMAL(18,2) = COALESCE((
+                SELECT SUM(Amount)
+                FROM dbo.StudentFeeLedger
+                WHERE StudentId    = @StudentId
+                  AND AcademicYear = @AcademicYear
+                  AND TermId       = @TermId
+                  AND EntryType    = 'Debit'
+            ),0);
+
+        DECLARE @Credit     DECIMAL(18,2) = COALESCE((
+                SELECT SUM(Amount)
+                FROM dbo.StudentFeeLedger
+                WHERE StudentId    = @StudentId
+                  AND AcademicYear = @AcademicYear
+                  AND TermId       = @TermId
+                  AND EntryType    = 'Credit'
+            ),0);
+
+        DECLARE @Outstanding DECIMAL(18,2) = @Debit - @Credit;
+        IF @Outstanding <= 0
+        BEGIN
+            COMMIT TRAN;
+            RETURN 0;
+        END
+
+        DECLARE @Discount DECIMAL(18,2) =
+            CASE WHEN @useMode = 'Percent' THEN @Outstanding * @useValue/100.0
+                 ELSE @useValue
+            END;
+
+        IF @useCap IS NOT NULL AND @Discount > @useCap
+            SET @Discount = @useCap;
+
+        IF @Discount <= 0
+        BEGIN
+            COMMIT TRAN;
+            RETURN 0;
+        END
+
+        INSERT INTO dbo.StudentFeeLedger
+            (StudentId, AcademicYear, TermId, HeadId, EntryType,
+             Amount, Narration, ReceiptId, EntryDate, CreatedAtUtc, Balance)
+        VALUES
+            (@StudentId, @AcademicYear, @TermId, @headId, 'Credit',
+             @Discount, 'Discount applied', NULL,
+             CAST(SYSUTCDATETIME() AS DATE), SYSUTCDATETIME(), NULL);
+
+        ;WITH LedgerOrdered AS
+        (
+            SELECT LedgerId,
+                   CASE WHEN EntryType = 'Debit' THEN -Amount ELSE Amount END AS SignedAmt
+            FROM dbo.StudentFeeLedger
+            WHERE StudentId    = @StudentId
+
+        ),
+        Running AS
+        (
+            SELECT LedgerId,
+                   SUM(SignedAmt) OVER (ORDER BY LedgerId ROWS UNBOUNDED PRECEDING) AS RunningBalance
+            FROM LedgerOrdered
+        )
+        UPDATE l
+        SET Balance = r.RunningBalance
+        FROM dbo.StudentFeeLedger l
+        INNER JOIN Running r ON l.LedgerId = r.LedgerId
+        WHERE l.StudentId    = @StudentId
+          AND l.AcademicYear = @AcademicYear
+          AND l.TermId       = @TermId;
+
+        COMMIT TRAN;
+        RETURN 1;
+    END TRY
+    BEGIN CATCH
+        IF XACT_STATE() <> 0 ROLLBACK TRAN;
+        THROW;
+    END CATCH
+END;
 GO
 
 CREATE OR ALTER PROCEDURE InsertStudentFeeAdjustment
@@ -1132,21 +1225,66 @@ CREATE OR ALTER PROCEDURE InsertStudentFeeAdjustment
     @CreatedByUserId INT = NULL
 AS
 BEGIN
-    SET NOCOUNT ON;
 
-    INSERT INTO dbo.StudentFeeAdjustments (StudentId, AcademicYear, TermId, HeadId, Type, Amount, Narration, EntryDate, CreatedByUserId)
-    VALUES (@StudentId, @AcademicYear, @TermId, @HeadId, @Type, @Amount, @Narration, @EntryDate, @CreatedByUserId);
+    SET NOCOUNT, XACT_ABORT ON;
 
-    DECLARE @AdjId INT = CONVERT(INT, SCOPE_IDENTITY());
+    BEGIN TRY
+        BEGIN TRAN;
 
-    DECLARE @EntryType NVARCHAR(10) = CASE WHEN @Type='Fine' THEN 'Debit' ELSE 'Credit' END;
+        INSERT INTO dbo.StudentFeeAdjustments
+            (StudentId, AcademicYear, TermId, HeadId, Type,
+             Amount, Narration, EntryDate, CreatedByUserId)
+        VALUES
+            (@StudentId, @AcademicYear, @TermId, @HeadId, @Type,
+             @Amount, @Narration, @EntryDate, @CreatedByUserId);
 
-    INSERT INTO dbo.StudentFeeLedger (StudentId, AcademicYear, TermId, HeadId, EntryType, Amount, Narration, ReceiptId, EntryDate)
-    VALUES (@StudentId, @AcademicYear, @TermId, @HeadId, @EntryType, @Amount, CONCAT('Adjustment: ', @Type), NULL, @EntryDate);
+        DECLARE @AdjId INT = SCOPE_IDENTITY();
 
-    RETURN @AdjId;
-END
+        DECLARE @EntryType NVARCHAR(10) = CASE WHEN @Type = 'Fine' THEN 'Debit' ELSE 'Credit' END;
+
+
+        INSERT INTO dbo.StudentFeeLedger
+            (StudentId, AcademicYear, TermId, HeadId, EntryType,
+             Amount, Narration, ReceiptId, EntryDate, CreatedAtUtc, Balance)
+        VALUES
+            (@StudentId, @AcademicYear, @TermId, @HeadId, @EntryType,
+             @Amount, CONCAT('Adjustment: ', @Type), NULL, @EntryDate,
+             SYSUTCDATETIME(), NULL);
+
+        ;WITH LedgerOrdered AS
+        (
+            SELECT  LedgerId,
+                    CASE WHEN EntryType = 'Debit' THEN -Amount ELSE Amount END AS SignedAmt
+            FROM    dbo.StudentFeeLedger
+            WHERE   StudentId    = @StudentId
+              AND   AcademicYear = @AcademicYear
+              AND   (TermId      = @TermId OR (@TermId IS NULL AND TermId IS NULL))
+        ),
+        Running AS
+        (
+            SELECT  LedgerId,
+                    SUM(SignedAmt) OVER (ORDER BY LedgerId ROWS UNBOUNDED PRECEDING) AS RunningBalance
+            FROM    LedgerOrdered
+        )
+        UPDATE  l
+        SET     Balance = r.RunningBalance
+        FROM    dbo.StudentFeeLedger l
+        INNER JOIN Running r ON l.LedgerId = r.LedgerId
+        WHERE   l.StudentId    = @StudentId
+          AND   l.AcademicYear = @AcademicYear
+          AND   (l.TermId      = @TermId OR (@TermId IS NULL AND l.TermId IS NULL));
+
+        COMMIT TRAN;
+        RETURN @AdjId;
+    END TRY
+    BEGIN CATCH
+        IF XACT_STATE() <> 0 ROLLBACK TRAN;
+        THROW;
+    END CATCH
+END;
 GO
+
+
 
 CREATE OR ALTER PROCEDURE GetStudentFeeAdjustments
     @StudentId INT = NULL,

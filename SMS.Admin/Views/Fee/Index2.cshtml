@@ -1,9 +1,18 @@
 ﻿@{
     ViewData["Title"] = "Fee Management";
+}
+
+
+<p>After initiating, you’ll be redirected to /Fee/Pay?orderNo=... which opens Razorpay Checkout.</p>
+<h2>Fee Management</h2>
+
+
+
+@{
+    ViewData["Title"] = "Fee Management";
     var isAdmin = User?.IsInRole("Admin") == true;
     var isTeacher = User?.IsInRole("Teacher") == true;
 }
-
 <div id="feePage" class="row">
     <div class="col-12 d-flex justify-content-between align-items-center mb-3">
         <h2 class="mb-0">Fees</h2>
@@ -50,52 +59,43 @@
 
                 <!-- Fee Heads -->
                 <div class="tab-pane fade show active" id="pane-heads" role="tabpanel" aria-labelledby="tab-heads">
-                    <div class="row g-3">
-                        <div class="col-12">
-                            <div class="card shadow-sm">
-                                <div class="card-header d-flex justify-content-between align-items-center">
-                                    <span>Fee Heads</span>
-                                    <div class="d-flex gap-2">
-                                        <button class="btn btn-outline-primary btn-sm" id="btnLoadFeeHeads">Refresh</button>
-                                        @if (isAdmin)
-                                        {
-                                            <button class="btn btn-primary btn-sm" id="btnNewFeeHead">New Head</button>
-                                        }
-                                    </div>
+                    <div class="card shadow-sm">
+                        <div class="card-body">
+                            <div id="fhMsg" class="d-none"></div>
+                            <div class="row g-2 align-items-end">
+                                <div class="col-md-3">
+                                    <label class="form-label">Active</label>
+                                    <select id="fhFilterActive" class="form-select">
+                                        <option value="">Any</option>
+                                        <option value="true">Active</option>
+                                        <option value="false">Inactive</option>
+                                    </select>
                                 </div>
-                                <div class="card-body">
-                                    <div id="fhMsg" class="d-none"></div>
-                                    <div class="row g-2 align-items-end">
-                                        <div class="col-md-3">
-                                            <label class="form-label">Active</label>
-                                            <select id="fhActiveFilter" class="form-select">
-                                                <option value="">Any</option>
-                                                <option value="true">Active</option>
-                                                <option value="false">Inactive</option>
-                                            </select>
-                                        </div>
-                                        <div class="col-md-2">
-                                            <button class="btn btn-outline-primary w-100" id="btnSearchFeeHeads">Search</button>
-                                        </div>
-                                    </div>
+                                <div class="col-md-3 d-flex gap-2">
+                                    <button class="btn btn-outline-primary" id="btnLoadFeeHeads">Refresh</button>
+                                    @if (isAdmin)
+                                    {
+                                        <button class="btn btn-primary" id="btnNewFeeHead">New Head</button>
+                                    }
                                 </div>
-                                <div class="card-body p-0">
-                                    <div class="table-responsive">
-                                        <table class="table table-sm table-striped mb-0" id="fhTable">
-                                            <thead class="table-light">
-                                                <tr>
-                                                    <th style="width:90px;">Head ID</th>
-                                                    <th>Code</th>
-                                                    <th>Name</th>
-                                                    <th>Sort</th>
-                                                    <th>Active</th>
-                                                    <th style="width:180px;">Actions</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody><tr><td colspan="6" class="p-3 text-center text-muted">No data</td></tr></tbody>
-                                        </table>
-                                    </div>
-                                </div>
+                            </div>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-striped align-middle mb-0" id="fhTable">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th style="width:90px;">Head ID</th>
+                                            <th>Code</th>
+                                            <th>Name</th>
+                                            <th>Sort</th>
+                                            <th>Description</th>
+                                            <th style="width:100px;">Active</th>
+                                            <th style="width:200px;">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody><tr><td colspan="7" class="p-3 text-center text-muted">No data</td></tr></tbody>
+                                </table>
                             </div>
                         </div>
                     </div>
@@ -103,58 +103,48 @@
 
                 <!-- Fee Terms -->
                 <div class="tab-pane fade" id="pane-terms" role="tabpanel" aria-labelledby="tab-terms">
-                    <div class="row g-3">
-                        <div class="col-12">
-                            <div class="card shadow-sm">
-                                <div class="card-header d-flex justify-content-between align-items-center">
-                                    <span>Fee Terms</span>
-                                    <div class="d-flex gap-2">
-                                        <button class="btn btn-outline-primary btn-sm" id="btnLoadFeeTerms">Refresh</button>
-                                        @if (isAdmin)
-                                        {
-                                            <button class="btn btn-primary btn-sm" id="btnNewFeeTerm">New Term</button>
-                                        }
-                                    </div>
+                    <div class="card shadow-sm">
+                        <div class="card-body">
+                            <div id="ftMsg" class="d-none"></div>
+                            <div class="row g-2 align-items-end">
+                                <div class="col-md-3">
+                                    <label class="form-label">Academic Year</label>
+                                    <input type="text" id="ftFilterYear" class="form-control" placeholder="2025-26" />
                                 </div>
-                                <div class="card-body">
-                                    <div id="ftMsg" class="d-none"></div>
-                                    <div class="row g-2 align-items-end">
-                                        <div class="col-md-3">
-                                            <label class="form-label">AY</label>
-                                            <input type="text" id="ftSearchAy" class="form-control" placeholder="2025-26" />
-                                        </div>
-                                        <div class="col-md-3">
-                                            <label class="form-label">Active</label>
-                                            <select id="ftSearchActive" class="form-select">
-                                                <option value="">Any</option>
-                                                <option value="true">Active</option>
-                                                <option value="false">Inactive</option>
-                                            </select>
-                                        </div>
-                                        <div class="col-md-2">
-                                            <button class="btn btn-outline-primary w-100" id="btnSearchFeeTerms">Search</button>
-                                        </div>
-                                    </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Active</label>
+                                    <select id="ftFilterActive" class="form-select">
+                                        <option value="">Any</option>
+                                        <option value="true">Active</option>
+                                        <option value="false">Inactive</option>
+                                    </select>
                                 </div>
-                                <div class="card-body p-0">
-                                    <div class="table-responsive">
-                                        <table class="table table-sm table-striped mb-0" id="ftTable">
-                                            <thead class="table-light">
-                                                <tr>
-                                                    <th style="width:90px;">Term ID</th>
-                                                    <th>AY</th>
-                                                    <th>Code</th>
-                                                    <th>Name</th>
-                                                    <th>Sequence</th>
-                                                    <th>Due Date</th>
-                                                    <th>Active</th>
-                                                    <th style="width:180px;">Actions</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody><tr><td colspan="8" class="p-3 text-center text-muted">No data</td></tr></tbody>
-                                        </table>
-                                    </div>
+                                <div class="col-md-3 d-flex gap-2">
+                                    <button class="btn btn-outline-primary" id="btnLoadFeeTerms">Refresh</button>
+                                    @if (isAdmin)
+                                    {
+                                        <button class="btn btn-primary" id="btnNewFeeTerm">New Term</button>
+                                    }
                                 </div>
+                            </div>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-striped align-middle mb-0" id="ftTable">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th style="width:90px;">Term ID</th>
+                                            <th>AY</th>
+                                            <th>Code</th>
+                                            <th>Name</th>
+                                            <th>Seq</th>
+                                            <th>Due Date</th>
+                                            <th style="width:100px;">Active</th>
+                                            <th style="width:220px;">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody><tr><td colspan="8" class="p-3 text-center text-muted">No data</td></tr></tbody>
+                                </table>
                             </div>
                         </div>
                     </div>
@@ -164,9 +154,13 @@
                 <div class="tab-pane fade" id="pane-structures" role="tabpanel" aria-labelledby="tab-structures">
                     <div class="row g-3">
                         <div class="col-12">
+                            <div id="fsMsg" class="d-none"></div>
+                        </div>
+
+                        <div class="col-12">
                             <div class="card shadow-sm">
                                 <div class="card-header d-flex justify-content-between align-items-center">
-                                    <span>Fee Structures</span>
+                                    <span>Fee Structure Headers</span>
                                     <div class="d-flex gap-2">
                                         <button class="btn btn-outline-primary btn-sm" id="btnLoadStructures">Refresh</button>
                                         @if (isAdmin)
@@ -176,27 +170,26 @@
                                     </div>
                                 </div>
                                 <div class="card-body">
-                                    <div id="fsMsg" class="d-none"></div>
                                     <div class="row g-2 align-items-end">
                                         <div class="col-md-2">
                                             <label class="form-label">AY</label>
-                                            <input type="text" id="fsSearchYear" class="form-control" placeholder="2025-26" />
+                                            <input type="text" id="fsFilterYear" class="form-control" placeholder="2025-26" />
                                         </div>
                                         <div class="col-md-2">
                                             <label class="form-label">Class</label>
-                                            <input type="text" id="fsSearchClass" class="form-control" />
+                                            <input type="text" id="fsFilterClass" class="form-control" />
                                         </div>
                                         <div class="col-md-2">
                                             <label class="form-label">Section</label>
-                                            <input type="text" id="fsSearchSection" class="form-control" />
+                                            <input type="text" id="fsFilterSection" class="form-control" />
                                         </div>
                                         <div class="col-md-2">
-                                            <label class="form-label">Term ID (opt)</label>
-                                            <input type="number" id="fsSearchTerm" class="form-control" />
+                                            <label class="form-label">Term</label>
+                                            <input type="number" id="fsFilterTerm" class="form-control" />
                                         </div>
                                         <div class="col-md-2">
                                             <label class="form-label">Active</label>
-                                            <select id="fsSearchActive" class="form-select">
+                                            <select id="fsFilterActive" class="form-select">
                                                 <option value="">Any</option>
                                                 <option value="true">Active</option>
                                                 <option value="false">Inactive</option>
@@ -209,29 +202,30 @@
                                 </div>
                                 <div class="card-body p-0">
                                     <div class="table-responsive">
-                                        <table class="table table-sm table-striped mb-0" id="fsTable">
+                                        <table class="table table-striped align-middle mb-0" id="fsTable">
                                             <thead class="table-light">
                                                 <tr>
-                                                    <th style="width:90px;">ID</th>
+                                                    <th style="width:90px;">Structure ID</th>
                                                     <th>AY</th>
                                                     <th>Class</th>
-                                                    <th>Section</th>
                                                     <th>Term</th>
-                                                    <th>Active</th>
-                                                    <th>Effective From</th>
-                                                    <th style="width:180px;">Actions</th>
+                                                    <th>Effective</th>
+                                                    <th style="width:100px;">Active</th>
+                                                    <th style="width:220px;">Actions</th>
                                                 </tr>
                                             </thead>
-                                            <tbody><tr><td colspan="8" class="p-3 text-center text-muted">No data</td></tr></tbody>
+                                            <tbody><tr><td colspan="7" class="p-3 text-center text-muted">No data</td></tr></tbody>
                                         </table>
                                     </div>
+                                </div>
+                                <div class="card-footer">
+                                    <small class="text-muted">Create one structure per AY/Class/Term. Use details to define head-wise amounts.</small>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
-
-                <!-- Demand & Collection -->
+                                <!-- Demand & Collection -->
                 <div class="tab-pane fade" id="pane-demand" role="tabpanel" aria-labelledby="tab-demand">
                     <div class="row g-3">
                         <div class="col-12">
@@ -446,7 +440,7 @@
                                                     <th>Date</th>
                                                     <th>Type</th>
                                                     <th>Head</th>
-                                                    <th>Amount</th>
+                                                    <th>Amount</th>                                                    
                                                     <th>Balance</th>
                                                     <th>Narration</th>
                                                 </tr>
@@ -524,7 +518,7 @@
                                                     <th>Max</th>
                                                     <th>Head</th>
                                                     <th>Active</th>
-                                                    <th style="width:220px;">Actions</th>
+                                                    <th style="width:180px;">Actions</th>
                                                 </tr>
                                             </thead>
                                             <tbody><tr><td colspan="10" class="p-3 text-center text-muted">No data</td></tr></tbody>
@@ -592,7 +586,7 @@
                                                     <th>Cap</th>
                                                     <th>Head</th>
                                                     <th>Active</th>
-                                                    <th style="width:220px;">Actions</th>
+                                                    <th style="width:180px;">Actions</th>
                                                 </tr>
                                             </thead>
                                             <tbody><tr><td colspan="10" class="p-3 text-center text-muted">No data</td></tr></tbody>
@@ -656,7 +650,7 @@
                                                     <th>Cap</th>
                                                     <th>Head</th>
                                                     <th>Active</th>
-                                                    <th style="width:220px;">Actions</th>
+                                                    <th style="width:180px;">Actions</th>
                                                 </tr>
                                             </thead>
                                             <tbody><tr><td colspan="10" class="p-3 text-center text-muted">No data</td></tr></tbody>
@@ -666,80 +660,6 @@
                             </div>
                         </div>
 
-                        <!-- Apply Late Fee (Admin) -->
-                        @if (isAdmin)
-                        {
-                            <div class="col-12">
-                                <div class="card shadow-sm">
-                                    <div class="card-header">Apply Late Fee (Admin)</div>
-                                    <div class="card-body">
-                                        <div id="apLfMsg" class="d-none"></div>
-                                        <div class="row g-2 align-items-end">
-                                            <div class="col-md-2">
-                                                <label class="form-label">AY</label>
-                                                <input type="text" id="apLfYear" class="form-control" placeholder="2025-26" />
-                                            </div>
-                                            <div class="col-md-2">
-                                                <label class="form-label">Term ID</label>
-                                                <input type="number" id="apLfTerm" class="form-control" />
-                                            </div>
-                                            <div class="col-md-2">
-                                                <label class="form-label">As of Date (opt)</label>
-                                                <input type="date" id="apLfAsOf" class="form-control" />
-                                            </div>
-                                            <div class="col-md-2">
-                                                <label class="form-label">Class (opt)</label>
-                                                <input type="text" id="apLfClass" class="form-control" />
-                                            </div>
-                                            <div class="col-md-2">
-                                                <label class="form-label">Section (opt)</label>
-                                                <input type="text" id="apLfSection" class="form-control" />
-                                            </div>
-                                            <div class="col-md-2">
-                                                <button class="btn btn-success w-100" id="btnApplyLateFee">Apply</button>
-                                            </div>
-                                        </div>
-                                        <small class="text-muted">Applies matching active fine rule(s) for the given scope.</small>
-                                    </div>
-                                </div>
-                            </div>
-                        }
-
-                        <!-- Apply Discount/Scholarship for Student Term (Admin) -->
-                        @if (isAdmin)
-                        {
-                            <div class="col-12">
-                                <div class="card shadow-sm">
-                                    <div class="card-header">Apply Discount/Scholarship for Student Term (Admin)</div>
-                                    <div class="card-body">
-                                        <div id="apDsMsg" class="d-none"></div>
-                                        <div class="row g-2 align-items-end">
-                                            <div class="col-md-2">
-                                                <label class="form-label">Student ID</label>
-                                                <input type="number" id="apDsStudent" class="form-control" />
-                                            </div>
-                                            <div class="col-md-2">
-                                                <label class="form-label">AY</label>
-                                                <input type="text" id="apDsYear" class="form-control" placeholder="2025-26" />
-                                            </div>
-                                            <div class="col-md-2">
-                                                <label class="form-label">Term ID</label>
-                                                <input type="number" id="apDsTerm" class="form-control" />
-                                            </div>
-                                            <div class="col-md-2">
-                                                <label class="form-label">Scheme ID</label>
-                                                <input type="number" id="apDsSchemeId" class="form-control" />
-                                            </div>
-                                            
-                                            <div class="col-md-2">
-                                                <button class="btn btn-success w-100" id="btnApplyStudentDiscount">Apply</button>
-                                            </div>
-                                        </div>
-                                        <small class="text-muted">Creates head-wise Discount/Scholarship adjustments for the student’s term.</small>
-                                    </div>
-                                </div>
-                            </div>
-                        }
                     </div>
                 </div>
 
@@ -863,17 +783,25 @@
                                 <div class="card-header">Initiate Online Payment (Admin)</div>
                                 <div class="card-body">
                                     <div class="row g-2 align-items-end">
-                                        <div class="col-md-4">
+                                        <div class="col-md-2">
                                             <label class="form-label">Student ID</label>
                                             <input type="number" id="opStudentId" class="form-control" />
                                         </div>
-                                        <div class="col-md-4">
+                                        <div class="col-md-2">
                                             <label class="form-label">AY</label>
                                             <input type="text" id="opYear" class="form-control" placeholder="2025-26" />
                                         </div>
-                                        <div class="col-md-4">
+                                        <div class="col-md-2">
                                             <label class="form-label">Term ID</label>
                                             <input type="number" id="opTerm" class="form-control" />
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label">Return URL (opt)</label>
+                                            <input type="text" id="opReturnUrl" class="form-control" placeholder="https://..." />
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label">Callback URL (opt)</label>
+                                            <input type="text" id="opCallbackUrl" class="form-control" placeholder="https://..." />
                                         </div>
                                     </div>
 
@@ -900,7 +828,6 @@
                                         <div class="text-end mt-2">
                                             <strong>Total: </strong><span id="opTotal">0.00</span>
                                         </div>
-                                       
                                     </div>
 
                                 </div>
@@ -934,7 +861,6 @@
 
                     </div>
                 </div>
-
             </div> <!-- tab-content -->
         </div> <!-- col-12 -->
     }
@@ -1222,9 +1148,157 @@
   </div>
 </div>
 
-<!-- Hidden head select template for structures -->
-<select id="fsHeadSelectTemplate" class="d-none"></select>
-
 @section Scripts {
-    <script src="/js/script/fee.js?v=2"></script>
+    <script src="/js/script/fee.js?v=1"></script>
 }
+
+
+
+
+
+
+
+
+
+@* 
+<h3>Fee Heads</h3>
+<ul>
+    <li>POST /Fee/CreateFeeHead</li>
+    <li>POST /Fee/UpdateFeeHead</li>
+    <li>POST /Fee/DeleteFeeHead (body: headId number)</li>
+    <li>GET /Fee/GetFeeHeadById?headId=1</li>
+    <li>GET /Fee/GetFeeHeadList?isActive=true</li>
+</ul>
+
+<h3>Fee Terms</h3>
+<ul>
+    <li>POST /Fee/CreateFeeTerm</li>
+    <li>POST /Fee/UpdateFeeTerm</li>
+    <li>POST /Fee/DeleteFeeTerm (body: termId number)</li>
+    <li>GET /Fee/GetFeeTermById?termId=1</li>
+    <li>GET /Fee/GetFeeTermList?academicYear=2024-2025&isActive=true</li>
+</ul>
+
+<h3>Fee Structures</h3>
+<ul>
+    <li>POST /Fee/UpsertFeeStructure</li>
+    <li>POST /Fee/DeleteFeeStructure (body: structureId number)</li>
+    <li>GET /Fee/GetFeeStructureById?structureId=1</li>
+    <li>GET /Fee/GetFeeStructureByClassTerm?academicYear=2024-2025&className=Grade%208&section=A&termId=1</li>
+    <li>GET /Fee/GetFeeStructureHeaders?academicYear=2024-2025&className=Grade%208&termId=1</li>
+</ul>
+
+<pre>
+UpsertFeeStructure sample:
+{
+  "structureId": 0,
+  "academicYear": "2024-2025",
+  "className": "Grade 8",
+  "section": "A",
+  "termId": 1,
+  "effectiveFrom": "2025-04-01T00:00:00Z",
+  "isActive": true,
+  "details": [
+    { "headId": 1, "amount": 12000, "isOptional": false },
+    { "headId": 2, "amount": 1500,  "isOptional": true }
+  ]
+}
+</pre>
+
+
+<h3>Fee Collection & Ledger</h3>
+<ul>
+    <li>POST /Fee/GenerateStudentTermFee</li>
+    <li>POST /Fee/CollectStudentFee</li>
+    <li>GET /Fee/GetFeeReceiptById?receiptId=1</li>
+    <li>GET /Fee/GetFeeReceiptItems?receiptId=1</li>
+    <li>GET /Fee/GetFeeReceiptList?academicYear=2024-2025&studentId=1&termId=1&fromDate=2025-04-01&toDate=2025-04-30</li>
+    <li>GET /Fee/GetStudentLedger?studentId=1&academicYear=2024-2025&termId=1</li>
+    <li>GET /Fee/GetStudentFeeBalance?studentId=1&academicYear=2024-2025&termId=1</li>
+</ul>
+
+<pre>
+GenerateStudentTermFee
+{
+  "studentId": 1,
+  "academicYear": "2024-2025",
+  "termId": 1
+}
+
+CollectStudentFee
+{
+  "studentId": 1,
+  "academicYear": "2024-2025",
+  "termId": 1,
+  "paymentMode": "Cash",
+  "referenceNo": "CASH-COUNTER-1",
+  "receiptDate": "2025-04-10T10:05:00Z",
+  "receivedByUserId": 1,
+  "items": [
+    { "headId": 1, "amount": 6000 },
+    { "headId": 2, "amount": 750 }
+  ]
+}
+</pre>
+
+<h3>Fines, Discounts, Scholarships, Adjustments</h3>
+<ul>
+    <li>POST /Fee/UpsertFeeFineRule</li>
+    <li>GET /Fee/GetFeeFineRules?academicYear=2024-2025&className=Grade%208&termId=1&isActive=true</li>
+    <li>POST /Fee/UpsertFeeDiscountScheme</li>
+    <li>GET /Fee/GetFeeDiscountSchemes?academicYear=2024-2025&className=Grade%208&termId=1</li>
+    <li>POST /Fee/UpsertStudentScholarship</li>
+    <li>GET /Fee/GetStudentScholarships?studentId=1&academicYear=2024-2025&termId=1</li>
+    <li>POST /Fee/ApplyLateFeeForTerm</li>
+    <li>POST /Fee/ApplyDiscountForStudentTerm</li>
+    <li>POST /Fee/InsertStudentFeeAdjustment</li>
+    <li>GET /Fee/GetStudentFeeAdjustments?studentId=1&academicYear=2024-2025&termId=1&type=Discount</li>
+</ul>
+<pre>
+ApplyLateFeeForTerm
+{ "academicYear": "2024-2025", "termId": 1, "asOfDate": "2025-04-30T00:00:00Z" }
+
+ApplyDiscountForStudentTerm (by scheme)
+{ "studentId": 1, "academicYear": "2024-2025", "termId": 1, "schemeId": 2 }
+
+ApplyDiscountForStudentTerm (ad-hoc)
+{ "studentId": 1, "academicYear": "2024-2025", "termId": 1, "mode": "Percent", "value": 10, "capAmount": 2000 }
+
+InsertStudentFeeAdjustment
+{ "studentId": 1, "academicYear": "2024-2025", "termId": 1, "type": "WriteOff", "amount": 500, "narration": "Principal approval", "entryDate": "2025-04-30", "createdByUserId": 1 }
+</pre>
+
+
+
+<h3>Online Payments</h3>
+<ul>
+    <li>POST /Fee/InitiateOnlinePayment</li>
+    <li>POST /Fee/PaymentCallback (called by gateway)</li>
+    <li>GET /Fee/GetPaymentOrderStatus?orderNo=PG-...</li>
+</ul>
+<pre>
+InitiateOnlinePayment (example)
+{
+  "studentId": 1,
+  "academicYear": "2024-2025",
+  "termId": 1,
+  "currency": "INR",
+  "returnUrl": "https://localhost:5001/Fee/Index",
+  "callbackUrl": "https://localhost:5001/Fee/PaymentCallback",
+  "items": [
+    { "headId": 1, "amount": 6000 },
+    { "headId": 2, "amount": 750 }
+  ]
+}
+
+PaymentCallback (simulated by gateway)
+{
+  "orderNo": "PG-20250410-000123",
+  "status": "Success",
+  "paymentId": "DUMMY_PAY_ABC123",
+  "gatewayOrderId": "DUMMY_GO_PG-20250410-000123",
+  "amount": 6750,
+  "currency": "INR",
+  "rawPayload": "{\"provider\":\"dummy\",\"ok\":true}"
+}
+</pre> *@

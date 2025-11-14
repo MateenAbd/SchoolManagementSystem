@@ -28,6 +28,13 @@ namespace SMS.Application.Handlers.Fee
             var order = await _uow.FeeRepository.GetPaymentOrderByOrderNoAsync(cancellationToken, cb.OrderNo);
             if (order is null) return -1;
 
+            await _uow.FeeRepository.InsertPaymentGatewayEventAsync(cancellationToken, new PaymentGatewayEvent
+            {
+                OrderId = order.OrderId,
+                EventType = "Callback",
+                Payload = cb.RawPayload ?? JsonSerializer.Serialize(cb)
+            });
+
             // Verify signature (if provided)
             var verified = await _gateway.VerifyCallbackAsync(new VerifyPaymentContext
             {
@@ -43,18 +50,33 @@ namespace SMS.Application.Handlers.Fee
             await _uow.FeeRepository.InsertPaymentGatewayEventAsync(cancellationToken, new PaymentGatewayEvent
             {
                 OrderId = order.OrderId,
-                EventType = "Callback",
-                Payload = cb.RawPayload ?? JsonSerializer.Serialize(cb)
+                EventType = verified ? "VerifyOK" : "VerifyFailed",
+                Payload = JsonSerializer.Serialize(new { cb.GatewayOrderId, cb.PaymentId, verified })
             });
 
             if (!verified)
             {
                 await _uow.FeeRepository.UpdatePaymentOrderStatusAsync(cancellationToken, order.OrderId, "Failed", cb.PaymentId, cb.GatewayOrderId, cb.PaymentId);
+                await _uow.FeeRepository.InsertPaymentGatewayEventAsync(cancellationToken, new PaymentGatewayEvent
+                {
+                    OrderId = order.OrderId,
+                    EventType = "StatusUpdate",
+                    Payload = JsonSerializer.Serialize(new { status = "Failed" })
+                });
                 return 0;
             }
 
             // If already processed (has receipt), idempotent
-            if (order.ReceiptId.HasValue) return order.ReceiptId.Value;
+            if (order.ReceiptId.HasValue)
+            {
+                await _uow.FeeRepository.InsertPaymentGatewayEventAsync(cancellationToken, new PaymentGatewayEvent
+                {
+                    OrderId = order.OrderId,
+                    EventType = "DuplicateCallback",
+                    Payload = JsonSerializer.Serialize(new { orderNo = cb.OrderNo, cb.PaymentId, cb.GatewayOrderId })
+                });
+                return order.ReceiptId.Value;
+            }
 
             if (cb.Status == "Success")
             {
@@ -99,13 +121,32 @@ namespace SMS.Application.Handlers.Fee
 
                 await _uow.FeeRepository.MarkPaymentOrderReceiptedAsync(cancellationToken, order.OrderId, receiptId);
                 await _uow.FeeRepository.UpdatePaymentOrderStatusAsync(cancellationToken, order.OrderId, "Success", cb.PaymentId, cb.GatewayOrderId, cb.PaymentId);
+                await _uow.FeeRepository.InsertPaymentGatewayEventAsync(cancellationToken, new PaymentGatewayEvent
+                {
+                    OrderId = order.OrderId,
+                    EventType = "ReceiptCreated",
+                    Payload = JsonSerializer.Serialize(new { receiptId, count = items.Count, total = order.Amount })
+                });
 
+                
+                await _uow.FeeRepository.InsertPaymentGatewayEventAsync(cancellationToken, new PaymentGatewayEvent
+                {
+                    OrderId = order.OrderId,
+                    EventType = "StatusUpdate",
+                    Payload = JsonSerializer.Serialize(new { status = "Success" })
+                });
                 return receiptId;
             }
             else
             {
                 var status = cb.Status == "Cancelled" ? "Cancelled" : "Failed";
                 await _uow.FeeRepository.UpdatePaymentOrderStatusAsync(cancellationToken, order.OrderId, status, cb.PaymentId, cb.GatewayOrderId, cb.PaymentId);
+                await _uow.FeeRepository.InsertPaymentGatewayEventAsync(cancellationToken, new PaymentGatewayEvent
+                {
+                    OrderId = order.OrderId,
+                    EventType = "StatusUpdate",
+                    Payload = JsonSerializer.Serialize(new { status })
+                });
                 return 0;
             }
         }

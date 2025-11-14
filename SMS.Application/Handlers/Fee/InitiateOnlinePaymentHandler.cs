@@ -42,7 +42,8 @@ namespace SMS.Application.Handlers.Fee
             };
 
             var orderId = await _uow.FeeRepository.CreatePaymentOrderAsync(cancellationToken, order);
-            var orderFromDb = await _uow.FeeRepository.GetPaymentOrderByOrderNoAsync(cancellationToken, order.OrderNo);
+            //var orderFromDb = await _uow.FeeRepository.GetPaymentOrderByOrderNoAsync(cancellationToken, order.OrderNo);
+            var orderFromDb = await _uow.FeeRepository.GetPaymentOrderByOrderIdAsync(cancellationToken, orderId);
 
             var gw = await _gateway.CreateOrderAsync(new CreatePaymentOrderContext
             {
@@ -61,6 +62,22 @@ namespace SMS.Application.Handlers.Fee
                 OrderId = orderFromDb.OrderId,
                 EventType = "Initiated",
                 Payload = JsonSerializer.Serialize(new { r, gw })
+            });
+
+            //log OrderCreated with gateway order id
+            await _uow.FeeRepository.InsertPaymentGatewayEventAsync(cancellationToken, new PaymentGatewayEvent
+            {
+                OrderId = orderFromDb.OrderId,
+                EventType = "OrderCreated",
+                Payload = JsonSerializer.Serialize(new { gateway = _gateway.Name, gatewayOrderId = gw.GatewayOrderId, amount, currency = r.Currency })
+            });
+
+            //log status transition -> Pending
+            await _uow.FeeRepository.InsertPaymentGatewayEventAsync(cancellationToken, new PaymentGatewayEvent
+            {
+                OrderId = orderFromDb.OrderId,
+                EventType = "StatusUpdate",
+                Payload = JsonSerializer.Serialize(new { status = "Pending" })
             });
 
             return new InitiateOnlinePaymentResponseDto
