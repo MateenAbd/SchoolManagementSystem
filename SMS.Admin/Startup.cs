@@ -10,6 +10,7 @@ using Microsoft.Extensions.Hosting;
 using SMS.Application.Behaviors;
 using SMS.Application.Commands.Identity;
 using SMS.Application.Mapper;
+using SMS.Application.Hubs;
 using SMS.Application.Validators.Identity;
 using SMS.Application.Validators;
 using SMS.Infrastructure;
@@ -61,7 +62,7 @@ namespace SMS.Admin
 
             services.AddAuthorization();
 
-
+            services.AddSignalR();
 
             services.AddInfrastructure();
             services.AddAutoMapper(config =>
@@ -107,6 +108,7 @@ namespace SMS.Admin
 
             app.UseEndpoints(endpoints =>
             {
+                endpoints.MapHub<SMS.Application.Hubs.ChatHub>("/hubs/chat");
                 endpoints.MapControllerRoute(
                     name: "default",
                     pattern: "{controller=Auth}/{action=Index}/{id?}");

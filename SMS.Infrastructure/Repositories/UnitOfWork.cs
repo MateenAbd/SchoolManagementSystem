@@ -39,6 +39,9 @@ namespace SMS.Infrastructure.Repositories
         private IFeeRepository? _feeRepository;
         public IFeeRepository FeeRepository => _feeRepository ??= new FeeRepository(_dbRepository);
 
+        private ICommunicationRepository? _communicationRepository;
+        public ICommunicationRepository CommunicationRepository => _communicationRepository ??= new CommunicationRepository(_dbRepository);
+
 
     }
 }

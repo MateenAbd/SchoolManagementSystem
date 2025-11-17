@@ -9,5 +9,6 @@
         INotificationRepository NotificationRepository { get; }
         IAcademicRepository AcademicRepository { get; }
         IFeeRepository FeeRepository { get; }
+        ICommunicationRepository CommunicationRepository { get; }
     }
 }
